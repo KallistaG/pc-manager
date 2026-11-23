@@ -233,7 +233,7 @@ fn read_packaged(ctx: &Ctx) -> Vec<StartupEntry> {
             enabled: t.enabled,
             can_toggle: false,
             disabled_at_ms: None,
-            note: Some(format!("App Store · gói {} · tắt/bật trong Settings → Apps → Startup", t.family)),
+            note: Some(format!("Microsoft Store app · package {} · enable/disable in Settings → Apps → Startup", t.family)),
         })
         .collect()
 }
@@ -271,7 +271,7 @@ fn read_run(
                 enabled: state.enabled,
                 can_toggle: approved_path.is_some(),
                 disabled_at_ms: state.disabled_at_ms,
-                note: approved_path.is_none().then(|| "Chạy một lần ở lần đăng nhập tới".to_owned()),
+                note: approved_path.is_none().then(|| "Runs once at the next sign-in".to_owned()),
                 key_name: name.clone(),
                 name,
             }
@@ -391,7 +391,7 @@ fn read_services(ctx: &Ctx) -> Vec<StartupEntry> {
                 enabled: true,
                 can_toggle: false,
                 disabled_at_ms: None,
-                note: Some(if delayed { "Tự động (trì hoãn)" } else { "Tự động" }.to_owned()),
+                note: Some(if delayed { "Automatic (delayed)" } else { "Automatic" }.to_owned()),
             })
         })
         .collect()
@@ -419,17 +419,17 @@ fn set_enabled_inner(source: Source, name: &str, enabled: bool) -> AppResult<()>
         let root = hive.key()?;
         root.open(run)
             .and_then(|k| k.get_value(name))
-            .map_err(|_| AppError::NotFound(format!("không có '{name}' trong {}\\{run}", hive.prefix())))?;
+            .map_err(|_| AppError::NotFound(format!("'{name}' not found in {}\\{run}", hive.prefix())))?;
         return write_approved(&root, &format!(r"{APPROVED_BASE}\{approved}"), name, enabled);
     }
     if let Some((dir, hive)) = folder_source(source) {
         // Chống path traversal: `name` phải đúng là một tên file nằm trong thư mục.
         if Path::new(name).file_name().and_then(|n| n.to_str()) != Some(name) || !dir.join(name).is_file() {
-            return Err(AppError::NotFound(format!("không có '{name}' trong thư mục Startup")));
+            return Err(AppError::NotFound(format!("'{name}' not found in the Startup folder")));
         }
         return write_approved(&hive.key()?, &format!(r"{APPROVED_BASE}\StartupFolder"), name, enabled);
     }
-    Err(AppError::Forbidden("nguồn này chỉ đọc trong v1".into()))
+    Err(AppError::Forbidden("This source is read-only in version 1".into()))
 }
 
 /// Ghi giá trị StartupApproved. `create` mở hoặc tạo subkey với quyền ghi
@@ -444,7 +444,7 @@ fn write_approved(root: &Key, approved_path: &str, name: &str, enabled: bool) ->
 /// dò chữ trong thông báo của Windows — thông báo đó theo ngôn ngữ máy).
 fn access_error(e: windows::core::Error) -> AppError {
     if e.code() == windows::core::HRESULT::from_win32(5) {
-        AppError::Forbidden("mục khởi động của máy (HKLM / mọi người dùng) cần quyền Administrator để bật/tắt".into())
+        AppError::Forbidden("System-wide startup entries (HKLM / all users) require administrator privileges to enable or disable".into())
     } else {
         e.into()
     }

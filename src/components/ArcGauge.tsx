@@ -5,7 +5,7 @@ import { useId } from "react";
  * không animation lặp, không blur — WebView chạy không GPU nên mọi hiệu ứng do CPU vẽ.
  */
 const TICKS = 44;
-const START = 200; // độ (0° = hướng 3 giờ, ngược chiều kim đồng hồ)
+const START = 200; // degrees (0° = 3 o’clock, counterclockwise)
 const SWEEP = 220;
 const CX = 100;
 const CY = 100;
@@ -44,7 +44,7 @@ export default function ArcGauge({
           <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
         </radialGradient>
       </defs>
-      {/* Vệt sáng tĩnh dưới đồng hồ (giống ảnh mẫu), chỉ ở giao diện tối. */}
+      {/* Static highlight beneath the gauge, shown only in dark mode. */}
       <ellipse cx={CX} cy={150} rx={95} ry={45} fill={`url(#${glowId})`} className="hidden [[data-theme=dark]_&]:inline" />
       <g strokeLinecap="round" strokeWidth={3.2}>
         {Array.from({ length: TICKS }, (_, i) => {

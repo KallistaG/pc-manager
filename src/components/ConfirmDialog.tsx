@@ -35,7 +35,7 @@ export default function ConfirmDialog({ req, onClose }: { req: ConfirmRequest | 
         <div className="mt-2 text-sm opacity-80">{req.body}</div>
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
-            Huỷ
+            Cancel
           </Button>
           <Button
             variant={req.danger ? "danger" : "primary"}

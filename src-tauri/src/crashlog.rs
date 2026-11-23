@@ -22,7 +22,7 @@ pub fn log_path() -> Option<PathBuf> {
 
 /// Dòng ghi cho một panic (tách riêng để test).
 pub fn format_entry(unix_secs: u64, version: &str, thread: &str, location: &str, message: &str) -> String {
-    format!("[unix {unix_secs}] PC Manager {version} — panic ở luồng '{thread}' tại {location}: {message}\n")
+    format!("[unix {unix_secs}] PC Manager {version} — panic in thread '{thread}' at {location}: {message}\n")
 }
 
 pub fn install() {
@@ -33,9 +33,9 @@ pub fn install() {
             .downcast_ref::<&str>()
             .map(|s| (*s).to_owned())
             .or_else(|| info.payload().downcast_ref::<String>().cloned())
-            .unwrap_or_else(|| "(không rõ nội dung)".to_owned());
+            .unwrap_or_else(|| "(unknown panic payload)".to_owned());
         let location = info.location().map_or_else(|| "?".to_owned(), |l| format!("{}:{}:{}", l.file(), l.line(), l.column()));
-        let thread = std::thread::current().name().unwrap_or("không tên").to_owned();
+        let thread = std::thread::current().name().unwrap_or("unnamed thread").to_owned();
         let secs = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs());
         let entry = format_entry(secs, env!("CARGO_PKG_VERSION"), &thread, &location, &message);
         if let Some(path) = log_path() {

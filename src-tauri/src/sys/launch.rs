@@ -46,7 +46,7 @@ fn open_shell_process() -> windows::core::Result<OwnedHandle> {
     // SAFETY: không tham số; trả về HWND của desktop shell hoặc null.
     let hwnd = unsafe { GetShellWindow() };
     if hwnd.0.is_null() {
-        return Err(windows::core::Error::new(windows::core::HRESULT(0x8007_0490_u32 as i32), "không tìm thấy Explorer của người dùng đang đăng nhập"));
+        return Err(windows::core::Error::new(windows::core::HRESULT(0x8007_0490_u32 as i32), "Could not find Explorer for the signed-in user"));
     }
     let mut pid = 0u32;
     // SAFETY: `hwnd` hợp lệ vừa lấy; `pid` là out-pointer trên stack.
@@ -182,12 +182,12 @@ mod tests {
         let ppid = crate::sys::process::enumerate().unwrap().into_iter().find(|p| p.pid == pid).map(|p| p.ppid);
         assert!(crate::sys::process::wait_exit(pid, std::time::Duration::from_secs(10)));
         let text = std::fs::read(&out).unwrap();
-        assert!(!text.is_empty(), "cmd đã chạy và đọc được biến môi trường");
+        assert!(!text.is_empty(), "command ran and read the environment variable");
         if let Some(ppid) = ppid {
             let mut shell_pid = 0u32;
             // SAFETY: như trong open_shell_process.
             unsafe { GetWindowThreadProcessId(GetShellWindow(), Some(&mut shell_pid)) };
-            assert_eq!(ppid, shell_pid, "cha là Explorer");
+            assert_eq!(ppid, shell_pid, "Explorer is the parent process");
         }
         let _ = std::fs::remove_dir_all(&dir);
     }

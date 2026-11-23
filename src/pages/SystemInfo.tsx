@@ -20,23 +20,23 @@ function uptime(secs: number): string {
   const d = Math.floor(secs / 86400);
   const h = Math.floor((secs % 86400) / 3600);
   const m = Math.floor((secs % 3600) / 60);
-  return d > 0 ? `${d} ngày ${h} giờ` : h > 0 ? `${h} giờ ${m} phút` : `${m} phút`;
+  return d > 0 ? `${d} ${d === 1 ? "day" : "days"} ${h} ${h === 1 ? "hour" : "hours"}` : h > 0 ? `${h} ${h === 1 ? "hour" : "hours"} ${m} ${m === 1 ? "minute" : "minutes"}` : `${m} ${m === 1 ? "minute" : "minutes"}`;
 }
 
 /** Mốc thời gian cách đây `secs` giây: "hôm nay 12:53" / "30/10/2026 07:57". */
 function ago(secs: number): string {
   const t = new Date(Date.now() - secs * 1000);
-  const hm = t.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-  return t.toDateString() === new Date().toDateString() ? `hôm nay ${hm}` : `${t.toLocaleDateString("vi-VN")} ${hm}`;
+  const hm = t.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  return t.toDateString() === new Date().toDateString() ? `Today ${hm}` : `${t.toLocaleDateString("en-US")} ${hm}`;
 }
 
 const join = (parts: (string | null | undefined | false)[], sep = " · ") => parts.filter(Boolean).join(sep);
 
 function slotText(s: MemorySlot): string {
-  if (s.sizeMb == null) return "trống";
+  if (s.sizeMb == null) return "Empty";
   const speed =
     s.speedMts && s.configuredMts && s.configuredMts !== s.speedMts
-      ? `${s.configuredMts} MT/s (thanh hỗ trợ ${s.speedMts})`
+      ? `${s.configuredMts} MT/s (rated ${s.speedMts})`
       : s.configuredMts || s.speedMts
         ? `${s.configuredMts ?? s.speedMts} MT/s`
         : null;
@@ -50,20 +50,20 @@ export function systemInfoText(i: SystemInfo): string {
   const w = i.windows;
   const c = i.cpu;
   const lines = [
-    "Cấu hình máy (PC Manager)",
+    "System information (PC Manager)",
     `Windows: ${join([w.product, w.displayVersion, w.build && `build ${w.build}`, w.architecture], ", ")}`,
-    `CPU: ${join([c.name, c.cores && c.threads ? `${c.cores} nhân / ${c.threads} luồng` : null, ghz(c.baseMhz), c.maxMhz ? `tối đa ${ghz(c.maxMhz)}` : null], ", ")}`,
+    `CPU: ${join([c.name, c.cores && c.threads ? `${c.cores} cores / ${c.threads} threads` : null, ghz(c.baseMhz), c.maxMhz ? `up to ${ghz(c.maxMhz)}` : null], ", ")}`,
     ...(i.gpus.length
       ? i.gpus.map((g) => `GPU: ${join([g.name, g.vramBytes ? formatBytes(g.vramBytes, 0) : null, g.driverVersion && `driver ${g.driverVersion}`], ", ")}`)
       : ["GPU: —"]),
     `Mainboard: ${join([i.board.manufacturer, i.board.product, i.board.version], " ") || "—"}`,
     i.board.systemManufacturer && i.board.systemManufacturer !== i.board.manufacturer
-      ? `Máy: ${join([i.board.systemManufacturer, i.board.systemProduct], " ")}`
+      ? `System: ${join([i.board.systemManufacturer, i.board.systemProduct], " ")}`
       : null,
     `BIOS: ${join([i.bios.vendor, i.bios.version, i.bios.releaseDate && `(${i.bios.releaseDate})`], " ") || "—"}`,
-    `RAM: ${formatBytes(i.memory.totalBytes, 0)}${i.memory.slotsTotal ? ` — ${filled(i)}/${i.memory.slotsTotal} khe` : ""}`,
+    `RAM: ${formatBytes(i.memory.totalBytes, 0)}${i.memory.slotsTotal ? ` — ${filled(i)}/${i.memory.slotsTotal} slots` : ""}`,
     ...i.memory.slots.map((s) => `  - ${s.locator ?? "Khe"}: ${slotText(s)}`),
-    "Ổ đĩa:",
+    "Drives:",
     ...i.disks.map((d) => `  - ${d.model}: ${join([diskSize(d.sizeBytes), d.bus, d.media], ", ")}`),
   ];
   return lines.filter((l): l is string => l != null).join("\n");
@@ -82,7 +82,7 @@ async function copyText(text: string): Promise<void> {
     ta.select();
     const ok = document.execCommand("copy");
     ta.remove();
-    if (!ok) throw new Error("không sao chép được vào clipboard");
+    if (!ok) throw new Error("Could not copy to clipboard");
   }
 }
 
@@ -129,16 +129,16 @@ export default function SystemInfoPage() {
   const c = info?.cpu;
   return (
     <PageShell
-      title="Cấu hình máy"
-      subtitle="Phần cứng và Windows — đọc trực tiếp từ firmware, ổ đĩa và registry. Không gửi đi đâu."
+      title="System Information"
+      subtitle="Hardware and Windows details — read directly from firmware, drives, and the registry. Nothing is sent anywhere."
       actions={
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" loading={loading} onClick={load}>
-            {!loading && <IconRefresh />}Tải lại
+            {!loading && <IconRefresh />}Refresh
           </Button>
-          <Button variant="primary" size="sm" disabled={!info} onClick={copy} title="Sao chép cấu hình dạng văn bản để gửi người khác">
+          <Button variant="primary" size="sm" disabled={!info} onClick={copy} title="Copy system information as text to share">
             {copied && <IconCheck />}
-            {copied ? "Đã sao chép" : "Sao chép cấu hình"}
+            {copied ? "Copied" : "Copy system info"}
           </Button>
         </div>
       }
@@ -152,42 +152,42 @@ export default function SystemInfoPage() {
       )}
       {!info ? (
         <Card className="py-10">
-          <ProgressBar className="mx-auto max-w-md" pct={null} label="Đang đọc cấu hình máy…" />
+          <ProgressBar className="mx-auto max-w-md" pct={null} label="Reading system information…" />
         </Card>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           <Card title="Windows">
-            <Row label="Phiên bản">{join([w?.product, w?.displayVersion])}</Row>
+            <Row label="Version">{join([w?.product, w?.displayVersion])}</Row>
             <Row label="Build">{w?.build}</Row>
-            <Row label="Kiến trúc">{w?.architecture}</Row>
-            <Row label="Ngày cài">{w?.installDateMs ? formatDate(w.installDateMs) : null}</Row>
-            {/* Lần bật nguồn gần nhất (kể cả khi Fast Startup bật), không tính thức dậy từ Sleep. */}
+            <Row label="Architecture">{w?.architecture}</Row>
+            <Row label="Install date">{w?.installDateMs ? formatDate(w.installDateMs) : null}</Row>
+            {/* Most recent power-on (including with Fast Startup), not a wake from sleep. */}
             {w?.lastPowerOnMs != null && (
-              <Row label="Bật máy gần nhất">
-                {ago((Date.now() - w.lastPowerOnMs) / 1000)} ({uptime((Date.now() - w.lastPowerOnMs) / 1000)} trước)
+              <Row label="Last powered on">
+                {ago((Date.now() - w.lastPowerOnMs) / 1000)} ({uptime((Date.now() - w.lastPowerOnMs) / 1000)} uptime)
               </Row>
             )}
           </Card>
           <Card title="CPU">
-            <Row label="Tên">{c?.name}</Row>
-            <Row label="Nhân / luồng">{c?.cores || c?.threads ? `${c?.cores ?? "?"} nhân / ${c?.threads ?? "?"} luồng` : null}</Row>
-            <Row label="Xung">{join([ghz(c?.baseMhz ?? null) && `${ghz(c?.baseMhz ?? null)} cơ bản`, ghz(c?.maxMhz ?? null) && `tối đa ${ghz(c?.maxMhz ?? null)}`])}</Row>
+            <Row label="Name">{c?.name}</Row>
+            <Row label="Cores / threads">{c?.cores || c?.threads ? `${c?.cores ?? "?"} cores / ${c?.threads ?? "?"} threads` : null}</Row>
+            <Row label="Clock speed">{join([ghz(c?.baseMhz ?? null) && `${ghz(c?.baseMhz ?? null)} base`, ghz(c?.maxMhz ?? null) && `up to ${ghz(c?.maxMhz ?? null)}`])}</Row>
             <Row label="Socket">{c?.socket}</Row>
           </Card>
           <Card title="Mainboard & BIOS">
             <Row label="Mainboard">{join([info.board.manufacturer, info.board.product], " ")}</Row>
             {info.board.systemManufacturer && info.board.systemManufacturer !== info.board.manufacturer && (
-              <Row label="Máy">{join([info.board.systemManufacturer, info.board.systemProduct], " ")}</Row>
+              <Row label="System">{join([info.board.systemManufacturer, info.board.systemProduct], " ")}</Row>
             )}
             <Row label="BIOS">{join([info.bios.vendor, info.bios.version])}</Row>
-            <Row label="Ngày BIOS">{info.bios.releaseDate}</Row>
+            <Row label="BIOS date">{info.bios.releaseDate}</Row>
           </Card>
-          <Card title={info.gpus.length > 1 ? "Card đồ hoạ" : "Card đồ hoạ (GPU)"}>
-            {info.gpus.length === 0 && <p className="text-sm opacity-60">Không đọc được thông tin card đồ hoạ.</p>}
+          <Card title={info.gpus.length > 1 ? "Graphics cards" : "Graphics card (GPU)"}>
+            {info.gpus.length === 0 && <p className="text-sm opacity-60">Could not read graphics card information.</p>}
             {info.gpus.map((g, n) => (
               <div key={g.name} className={n > 0 ? "mt-2 border-t border-black/5 pt-2 dark:border-white/[0.06]" : ""}>
-                <Row label="Tên">{g.name}</Row>
-                <Row label="Bộ nhớ">{g.vramBytes ? formatBytes(g.vramBytes, 0) : null}</Row>
+                <Row label="Name">{g.name}</Row>
+                <Row label="Memory">{g.vramBytes ? formatBytes(g.vramBytes, 0) : null}</Row>
                 <Row label="Driver">{join([g.driverVersion, g.driverDate])}</Row>
               </div>
             ))}
@@ -195,23 +195,23 @@ export default function SystemInfoPage() {
           <Card title={`RAM — ${formatBytes(info.memory.totalBytes, 0)}`} className="xl:col-span-2">
             {info.memory.slotsTotal != null && (
               <p className="mb-2 text-sm opacity-70">
-                Đã cắm {filled(info)} / {info.memory.slotsTotal} khe
-                {filled(info) < info.memory.slotsTotal && " — còn khe trống để nâng cấp"}
+                Installed: {filled(info)} / {info.memory.slotsTotal} slots
+                {filled(info) < info.memory.slotsTotal && " — slots available for an upgrade"}
               </p>
             )}
             <div className="grid gap-1">
               {info.memory.slots.map((s, n) => (
                 <div key={`${s.locator}-${n}`} className="flex gap-3 rounded-lg bg-black/[0.03] px-3 py-2 text-sm dark:bg-white/[0.04]">
                   <div className="w-44 shrink-0 truncate opacity-60" title={join([s.locator, s.bank])}>
-                    {s.locator ?? `Khe ${n + 1}`}
+                    {s.locator ?? `Slot ${n + 1}`}
                   </div>
                   <div className={`min-w-0 flex-1 ${s.sizeMb == null ? "opacity-50" : ""}`}>{slotText(s)}</div>
                 </div>
               ))}
-              {info.memory.slots.length === 0 && <p className="text-sm opacity-60">Firmware không cung cấp thông tin từng thanh RAM.</p>}
+              {info.memory.slots.length === 0 && <p className="text-sm opacity-60">Firmware did not provide information for individual memory modules.</p>}
             </div>
           </Card>
-          <Card title="Ổ đĩa" className="xl:col-span-2">
+          <Card title="Drives" className="xl:col-span-2">
             <div className="grid gap-1">
               {info.disks.map((d) => (
                 <div key={d.index} className="flex flex-wrap items-baseline gap-x-3 rounded-lg bg-black/[0.03] px-3 py-2 text-sm dark:bg-white/[0.04]">

@@ -75,7 +75,7 @@ fn junction(link: &Path, target: &Path) {
         .status()
         .unwrap()
         .success();
-    assert!(ok, "không tạo được junction");
+    assert!(ok, "Could not create junction");
 }
 
 fn rule_for(root: &Path, extra: &str) -> Rule {
@@ -109,7 +109,7 @@ fn junction_is_never_followed_or_deleted() {
     let m = manager(rule_for(&sb.root(), "remove_empty_dirs = true"), BanList::from_env());
     let scan = m.scan(&noop).unwrap();
     let r = &scan.rules[0];
-    assert_eq!(r.files, 1, "chỉ được thấy old.tmp, không thấy file qua junction");
+    assert_eq!(r.files, 1, "Only old.tmp should be found; files through the junction must not be seen");
     assert!(r.skipped_links >= 1);
 
     let store = Store::in_memory().unwrap();
@@ -316,7 +316,7 @@ fn wildcard_profile_dirs_are_expanded() {
     let scan = m.scan(&noop).unwrap();
     assert_eq!(scan.rules[0].files, 2);
     m.clean(&Store::in_memory().unwrap(), scan.scan_id, &ready_ids(&scan), false, &noop).unwrap();
-    assert!(sb.root().join("Profile 1").join("Bookmarks").exists(), "chỉ xoá trong Cache");
+    assert!(sb.root().join("Profile 1").join("Bookmarks").exists(), "Only files in Cache should be deleted");
 }
 
 #[test]
@@ -327,7 +327,7 @@ fn every_embedded_rule_root_is_outside_ban_list() {
         for p in &r.paths {
             for root in engine::expand_roots(p, &crate::user::env) {
                 let probe = root.join("probe.tmp");
-                assert!(bans.check(&probe).is_none(), "rule {} trỏ vào vùng cấm: {}", r.id, root.display());
+                assert!(bans.check(&probe).is_none(), "rule {} points to a forbidden area: {}", r.id, root.display());
             }
         }
     }

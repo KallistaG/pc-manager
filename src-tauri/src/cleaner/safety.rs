@@ -156,20 +156,20 @@ impl BanList {
     pub fn new(ctx: &BanCtx) -> Self {
         let w = &ctx.windows;
         let mut under = vec![
-            (format!(r"{w}\System32"), "thư mục hệ thống System32"),
-            (format!(r"{w}\SysWOW64"), "thư mục hệ thống SysWOW64"),
-            (format!(r"{w}\WinSxS"), "kho thành phần WinSxS (chỉ dọn bằng DISM)"),
-            (format!(r"{w}\Prefetch"), "thư mục Prefetch"),
-            (format!(r"{w}\Boot"), "thư mục khởi động"),
+            (format!(r"{w}\System32"), "System32 system folder"),
+            (format!(r"{w}\SysWOW64"), "SysWOW64 system folder"),
+            (format!(r"{w}\WinSxS"), "WinSxS component store (clean with DISM only)"),
+            (format!(r"{w}\Prefetch"), "Prefetch folder"),
+            (format!(r"{w}\Boot"), "boot folder"),
         ];
-        under.extend(ctx.program_files.iter().map(|p| (p.clone(), "thư mục cài đặt ứng dụng")));
-        under.extend(ctx.user_folders.iter().map(|p| (p.clone(), "thư mục dữ liệu cá nhân")));
+        under.extend(ctx.program_files.iter().map(|p| (p.clone(), "application installation folder")));
+        under.extend(ctx.user_folders.iter().map(|p| (p.clone(), "personal data folder")));
         let shallow = vec![
-            (ctx.user_profile.clone(), "gốc thư mục người dùng"),
-            (ctx.users_root.clone(), "thư mục Users"),
-            (ctx.program_data.clone(), "gốc ProgramData"),
+            (ctx.user_profile.clone(), "user profile root"),
+            (ctx.users_root.clone(), "Users folder"),
+            (ctx.program_data.clone(), "ProgramData root"),
         ];
-        let exact = vec![(w.clone(), "thư mục Windows")];
+        let exact = vec![(w.clone(), "Windows folder")];
         let clean = |v: Vec<(String, &'static str)>| -> Vec<(String, &'static str)> {
             v.into_iter().filter(|(p, _)| !p.trim().is_empty()).map(|(p, r)| (norm(&p), r)).collect()
         };
@@ -189,24 +189,24 @@ impl BanList {
             match c {
                 Component::Prefix(p) => {
                     if !matches!(p.kind(), Prefix::Disk(_) | Prefix::VerbatimDisk(_)) {
-                        return DirBans::all("ổ mạng / đường dẫn đặc biệt");
+                        return DirBans::all("network drive or special path");
                     }
                 }
                 Component::RootDir => {}
                 Component::Normal(_) => normals += 1,
-                Component::CurDir | Component::ParentDir => return DirBans::all("đường dẫn chứa '.' hoặc '..'"),
+                Component::CurDir | Component::ParentDir => return DirBans::all("path contains '.' or '..'"),
             }
         }
         if !dir.is_absolute() {
-            return DirBans::all("đường dẫn tương đối");
+            return DirBans::all("relative path");
         }
         // File nằm ngay ở gốc ổ đĩa.
         if normals == 0 {
-            return DirBans::all("gốc ổ đĩa");
+            return DirBans::all("drive root");
         }
         let d = norm(&dir.to_string_lossy());
         if crate::settings::is_protected(&d) {
-            return DirBans::all("nằm trong danh sách bảo vệ của bạn");
+            return DirBans::all("inside a protected folder");
         }
         for (base, why) in &self.under {
             if d == *base || d.strip_prefix(base.as_str()).is_some_and(|rest| rest.starts_with('\\')) {
@@ -221,7 +221,7 @@ impl BanList {
         let mut children: Vec<(String, &'static str)> =
             self.shallow.iter().chain(&self.exact).filter(|(b, _)| is_child(b)).map(|(b, w)| (b.clone(), *w)).collect();
         children.extend(
-            crate::settings::protected_children(&d).into_iter().map(|p| (p, "nằm trong danh sách bảo vệ của bạn")),
+            crate::settings::protected_children(&d).into_iter().map(|p| (p, "inside a protected folder")),
         );
         DirBans { all: None, children }
     }
@@ -233,24 +233,24 @@ impl BanList {
             match c {
                 Component::Prefix(p) => {
                     if !matches!(p.kind(), Prefix::Disk(_) | Prefix::VerbatimDisk(_)) {
-                        return Some("ổ mạng / đường dẫn đặc biệt");
+                        return Some("network drive or special path");
                     }
                 }
                 Component::RootDir => {}
                 Component::Normal(_) => normals += 1,
-                Component::CurDir | Component::ParentDir => return Some("đường dẫn chứa '.' hoặc '..'"),
+                Component::CurDir | Component::ParentDir => return Some("path contains '.' or '..'"),
             }
         }
         if !path.is_absolute() {
-            return Some("đường dẫn tương đối");
+            return Some("relative path");
         }
         // X:\ và mọi thứ nằm ngay ở gốc ổ đĩa.
         if normals <= 1 {
-            return Some("gốc ổ đĩa");
+            return Some("drive root");
         }
         let s = norm(&path.to_string_lossy());
         if crate::settings::is_protected(&s) {
-            return Some("nằm trong danh sách bảo vệ của bạn");
+            return Some("inside a protected folder");
         }
         let parent = path.parent().map(|p| norm(&p.to_string_lossy())).unwrap_or_default();
         for (base, why) in &self.under {
@@ -309,7 +309,7 @@ mod tests {
             r"D:\",
             r"E:\file-o-goc.txt",
         ] {
-            assert!(banned(p), "phải bị cấm: {p}");
+            assert!(banned(p), "must be blocked: {p}");
         }
     }
 
@@ -362,7 +362,7 @@ mod tests {
         assert!(banned(r"D:\Tai lieu\hop-dong.pdf"));
         assert!(banned(r"C:\Program Files\App\app.exe"));
         assert!(banned(r"C:\Windows"));
-        assert!(banned(r"C:\Users\Binh")); // hồ sơ người dùng khác
+        assert!(banned(r"C:\Users\Binh")); // another user profile
         assert!(banned(r"C:\ProgramData\config.ini"));
     }
 
@@ -382,7 +382,7 @@ mod tests {
             r"C:\Windows\SoftwareDistribution\Download\abc\x.cab",
             r"C:\ProgramData\Microsoft\Windows\WER\ReportArchive\x\Report.wer",
         ] {
-            assert!(!banned(p), "phải được phép: {p}");
+            assert!(!banned(p), "must be allowed: {p}");
         }
     }
 

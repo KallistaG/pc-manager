@@ -99,7 +99,7 @@ impl WinSxsHistory {
     fn save(&self, store: &Store) {
         if let Ok(json) = serde_json::to_string(self) {
             if let Err(e) = store.set_setting(HISTORY_KEY, &json) {
-                eprintln!("không lưu được lịch sử WinSxS: {e}");
+                eprintln!("Could not save WinSxS history: {e}");
             }
         }
     }
@@ -209,7 +209,7 @@ fn require_admin() -> AppResult<()> {
     if sys::token::is_elevated().unwrap_or(false) {
         Ok(())
     } else {
-        Err(AppError::Forbidden("cần chạy PC Manager với quyền Administrator".into()))
+        Err(AppError::Forbidden("Run PC Manager as administrator".into()))
     }
 }
 
@@ -295,7 +295,7 @@ fn run_dism(args: &[&str], on_progress: &dyn Fn(f32)) -> AppResult<(i32, String)
 
 impl SystemCleaner {
     fn lock(&self) -> AppResult<std::sync::MutexGuard<'_, ()>> {
-        self.running.try_lock_recover().ok_or_else(|| AppError::Busy("đang có một thao tác dọn hệ thống khác".into()))
+        self.running.try_lock_recover().ok_or_else(|| AppError::Busy("Another system cleanup is already running".into()))
     }
 
     /// `DISM /AnalyzeComponentStore` — chỉ đọc hệ thống, mất khoảng 1 phút. Tiến độ (%) qua
@@ -306,7 +306,7 @@ impl SystemCleaner {
         let started = Instant::now();
         let (code, text) = run_dism(&["/Online", "/Cleanup-Image", "/AnalyzeComponentStore", "/English"], on_progress)?;
         if code != 0 {
-            return Err(AppError::Other(format!("DISM lỗi (mã {code}): {}", text.trim())));
+            return Err(AppError::Other(format!("DISM failed (code {code}): {}", text.trim())));
         }
         let mut a = parse_analysis(&text);
         a.raw = text.lines().filter(|l| l.contains(" : ")).map(str::trim).collect::<Vec<_>>().join("\n");
@@ -341,10 +341,10 @@ impl SystemCleaner {
             "system.winsxs",
             "DISM /StartComponentCleanup",
             ok,
-            &format!("mã {code}, giải phóng {} byte, chờ khởi động lại: {}", report.freed_bytes, report.reboot_required),
+            &format!("code {code}, freed {} bytes, restart required: {}", report.freed_bytes, report.reboot_required),
         );
         if !ok {
-            return Err(AppError::Other(format!("DISM kết thúc với mã {code}")));
+            return Err(AppError::Other(format!("DISM exited with code {code}")));
         }
         let mut h = WinSxsHistory::load(store);
         h.record_clean(crate::settings::now_ms(), report.freed_bytes, report.reboot_required);
@@ -372,7 +372,7 @@ impl SystemCleaner {
         let _g = self.lock()?;
         let info = self.windows_old_info();
         if !info.exists {
-            return Err(AppError::NotFound("không có thư mục Windows.old".into()));
+            return Err(AppError::NotFound("Windows.old folder not found".into()));
         }
         let target = info.bytes.unwrap_or(0);
         let started = Instant::now();
@@ -380,8 +380,8 @@ impl SystemCleaner {
         let flag = format!("StateFlags{SAGE_SET:04}");
         let key = windows_registry::LOCAL_MACHINE
             .create(format!(r"{VOLUME_CACHES}\{PREVIOUS_INSTALLATIONS}"))
-            .map_err(|e| AppError::Other(format!("không mở được cấu hình Disk Cleanup: {e}")))?;
-        key.set_u32(&flag, 2).map_err(|e| AppError::Other(format!("không đặt được cờ Disk Cleanup: {e}")))?;
+            .map_err(|e| AppError::Other(format!("Could not open Disk Cleanup settings: {e}")))?;
+        key.set_u32(&flag, 2).map_err(|e| AppError::Other(format!("Could not set the Disk Cleanup flag: {e}")))?;
         let status = Command::new(system32().join("cleanmgr.exe")).arg(format!("/sagerun:{SAGE_SET}")).spawn().and_then(|mut child| {
             on_progress(0.0);
             loop {
@@ -402,10 +402,10 @@ impl SystemCleaner {
             "system.windows_old",
             "cleanmgr Previous Installations",
             !still,
-            &format!("mã {code}, giải phóng {} byte, còn Windows.old: {still}", report.freed_bytes),
+            &format!("code {code}, freed {} bytes, Windows.old remains: {still}", report.freed_bytes),
         );
         if still {
-            return Err(AppError::Other("Disk Cleanup đã chạy nhưng Windows.old vẫn còn".into()));
+            return Err(AppError::Other("Disk Cleanup finished, but Windows.old is still present".into()));
         }
         Ok(report)
     }
@@ -417,10 +417,10 @@ mod tests {
 
     #[test]
     fn freed_percent_is_capped_below_100() {
-        assert_eq!(freed_percent(100, 100, 0), 0.0, "không biết kích thước => 0");
-        assert_eq!(freed_percent(100, 50, 1000), 0.0, "trống giảm (app khác ghi) => 0");
+        assert_eq!(freed_percent(100, 100, 0), 0.0, "unknown size yields 0");
+        assert_eq!(freed_percent(100, 50, 1000), 0.0, "decreased free space (written by another app) yields 0");
         assert_eq!(freed_percent(0, 250, 1000), 25.0);
-        assert_eq!(freed_percent(0, 5000, 1000), 99.0, "chỉ 100% khi xong thật");
+        assert_eq!(freed_percent(0, 5000, 1000), 99.0, "100% only when the task is actually complete");
     }
 
     #[test]
@@ -428,7 +428,7 @@ mod tests {
         assert_eq!(last_percent("[==========                 20.0%                          ]"), Some(20.0));
         assert_eq!(last_percent("[=== 5.2% ===]\r[====== 10.9% ====]"), Some(10.9));
         assert_eq!(last_percent("[==========================100.0%==========================]"), Some(100.0));
-        assert_eq!(last_percent("không có phần trăm"), None);
+        assert_eq!(last_percent("no percentage"), None);
         assert_eq!(last_percent("150%"), None);
     }
 
@@ -441,9 +441,9 @@ mod tests {
         assert_eq!(a.backups.as_deref(), Some("2.61 GB"));
         assert_eq!(a.cache.as_deref(), Some("220.41 MB"));
         assert_eq!(a.reclaimable_packages, Some(3));
-        assert_eq!(a.last_cleanup.as_deref(), Some("2026-11-10 18:42:07"), "giờ có dấu ':' vẫn đọc đúng");
+        assert_eq!(a.last_cleanup.as_deref(), Some("2026-11-10 18:42:07"), "a time containing ':' is still parsed correctly");
         assert_eq!(a.recommended, Some(true));
-        let none = parse_analysis("Kích thước : 7 GB");
+        let none = parse_analysis("Component Store Size : 7 GB");
         assert!(none.actual_size.is_none() && none.recommended.is_none());
     }
 
@@ -460,7 +460,7 @@ mod tests {
     fn cleaned_since_boot_waits_for_restart() {
         let mut h = WinSxsHistory { last_reclaimable: Some(3), ..Default::default() };
         h.record_clean(100 * DAY, 2 * 1024 * 1024 * 1024, false);
-        assert_eq!(h.stuck, None, "lấy lại được nhiều => không kẹt");
+        assert_eq!(h.stuck, None, "substantial space recovered means it is not stuck");
         // Phân tích ngay sau khi dọn, chưa khởi động lại: DISM vẫn "Yes".
         assert_eq!(judge(true, Some(1), &h, 100 * DAY + 60_000, 99 * DAY, false), WinSxsVerdict::AfterRestart);
         // Đã khởi động lại sau lần dọn => đề xuất lại được.
@@ -473,10 +473,10 @@ mod tests {
         h.record_clean(100 * DAY, 0, false);
         assert_eq!(h.stuck, Some(WinSxsStuck { at_ms: 100 * DAY, packages: Some(3) }));
         let after_restart = 101 * DAY - 3_600_000;
-        assert_eq!(judge(true, Some(3), &h, 101 * DAY, after_restart, false), WinSxsVerdict::Stuck, "cùng số gói => dọn lại vô ích");
+        assert_eq!(judge(true, Some(3), &h, 101 * DAY, after_restart, false), WinSxsVerdict::Stuck, "the same package count means another cleanup would be futile");
         assert_eq!(judge(true, Some(2), &h, 101 * DAY, after_restart, false), WinSxsVerdict::Stuck);
-        assert_eq!(judge(true, Some(5), &h, 101 * DAY, after_restart, false), WinSxsVerdict::Recommended, "có bản cập nhật mới");
-        assert_eq!(judge(true, Some(3), &h, 131 * DAY, 130 * DAY, false), WinSxsVerdict::Recommended, "hết hạn sau 30 ngày");
+        assert_eq!(judge(true, Some(5), &h, 101 * DAY, after_restart, false), WinSxsVerdict::Recommended, "a newer update is available");
+        assert_eq!(judge(true, Some(3), &h, 131 * DAY, 130 * DAY, false), WinSxsVerdict::Recommended, "expires after 30 days");
         assert_eq!(judge(false, Some(3), &h, 101 * DAY, after_restart, false), WinSxsVerdict::NotNeeded);
     }
 
@@ -484,7 +484,7 @@ mod tests {
     fn futile_clean_needing_reboot_is_not_stuck() {
         let mut h = WinSxsHistory { last_reclaimable: Some(3), ..Default::default() };
         h.record_clean(100 * DAY, 0, true);
-        assert_eq!(h.stuck, None, "đang chờ khởi động lại => không coi là kẹt");
+        assert_eq!(h.stuck, None, "a pending restart means it is not stuck");
         // Sau khi khởi động lại, DISM vẫn khuyên => đề xuất lại.
         assert_eq!(judge(true, Some(3), &h, 101 * DAY, 100 * DAY + 3_600_000, false), WinSxsVerdict::Recommended);
     }
@@ -493,7 +493,7 @@ mod tests {
     fn restart_pending_comes_first() {
         let h = WinSxsHistory::default();
         assert_eq!(judge(true, Some(3), &h, 100 * DAY, 99 * DAY, true), WinSxsVerdict::PendingRestart);
-        assert_eq!(judge(false, Some(3), &h, 100 * DAY, 99 * DAY, true), WinSxsVerdict::NotNeeded, "DISM không khuyên => không nói gì");
+        assert_eq!(judge(false, Some(3), &h, 100 * DAY, 99 * DAY, true), WinSxsVerdict::NotNeeded, "do not show a recommendation when DISM does not recommend cleanup");
     }
 
     #[test]
@@ -503,7 +503,7 @@ mod tests {
         let h = WinSxsHistory { last_reclaimable: Some(4), last_clean_ms: Some(7), stuck: Some(WinSxsStuck { at_ms: 7, packages: None }) };
         h.save(&store);
         assert_eq!(WinSxsHistory::load(&store), h);
-        store.set_setting(HISTORY_KEY, "hỏng").unwrap();
+        store.set_setting(HISTORY_KEY, "broken").unwrap();
         assert_eq!(WinSxsHistory::load(&store), WinSxsHistory::default());
     }
 
@@ -519,7 +519,7 @@ mod tests {
 
     /// Chỉ đọc (DISM /AnalyzeComponentStore, ~1 phút).
     #[test]
-    #[ignore = "cần quyền Administrator (DISM)"]
+    #[ignore = "requires administrator privileges (DISM)"]
     fn analyze_winsxs_real() {
         let a = SystemCleaner::default().analyze_winsxs(&Store::in_memory().unwrap(), &|_| {}).unwrap();
         println!("{a:#?}");

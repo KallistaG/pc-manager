@@ -41,14 +41,14 @@ impl Op {
 /// Lý do tĩnh (không cần mở handle) khiến tiến trình được bảo vệ — để UI khoá nút.
 pub fn static_protection(pid: u32, name: &str, self_pid: u32) -> Option<&'static str> {
     if PROTECTED_PIDS.contains(&pid) {
-        return Some("tiến trình nhân hệ thống");
+        return Some("Windows kernel process");
     }
     let lower = name.to_ascii_lowercase();
     if PROTECTED_NAMES.contains(&lower.as_str()) {
-        return Some("tiến trình hệ thống quan trọng");
+        return Some("critical Windows system process");
     }
     if pid == self_pid {
-        return Some("chính PC Manager");
+        return Some("PC Manager itself");
     }
     None
 }
@@ -61,15 +61,15 @@ pub fn check(op: Op, pid: u32, name: &str, self_pid: u32, critical: bool) -> Res
     if pid == self_pid {
         // Cho phép trim/đổi ưu tiên chính mình, chặn kill/suspend.
         return match op {
-            Op::Kill | Op::Suspend => Err("không thể dừng chính PC Manager".into()),
+            Op::Kill | Op::Suspend => Err("PC Manager itself cannot be stopped".into()),
             _ => Ok(()),
         };
     }
     if let Some(reason) = static_protection(pid, name, self_pid) {
-        return Err(format!("{name} là {reason}, không được phép thao tác"));
+        return Err(format!("{name} is a {reason} and cannot be controlled"));
     }
     if critical && matches!(op, Op::Kill | Op::Suspend) {
-        return Err(format!("{name} được Windows đánh dấu critical — dừng nó sẽ gây màn hình xanh"));
+        return Err(format!("Windows marked {name} as critical — stopping it would cause a blue screen"));
     }
     Ok(())
 }

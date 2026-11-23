@@ -58,7 +58,7 @@ pub fn stop(name: &str, timeout: Duration) -> windows::core::Result<bool> {
     }
     Err(windows::core::Error::new(
         windows::Win32::Foundation::E_FAIL,
-        format!("service {name} không dừng trong {}s", timeout.as_secs()),
+        format!("Service {name} did not stop within {}s", timeout.as_secs()),
     ))
 }
 

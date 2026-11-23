@@ -93,7 +93,7 @@ mod tests {
         let mut seen = Vec::new();
         walk(&root, &AtomicBool::new(false), |f| seen.push((f.path.file_name().unwrap().to_string_lossy().into_owned(), f.size))).unwrap();
         seen.sort();
-        assert_eq!(seen, vec![("x.bin".to_owned(), 10), ("y.bin".to_owned(), 3)], "junction tạo được: {ok}");
+        assert_eq!(seen, vec![("x.bin".to_owned(), 10), ("y.bin".to_owned(), 3)], "junction created: {ok}");
         let _ = std::fs::remove_dir(root.join("jn"));
         let _ = std::fs::remove_dir_all(&root);
         let _ = std::fs::remove_dir_all(&target);

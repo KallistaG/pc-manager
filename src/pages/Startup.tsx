@@ -11,26 +11,26 @@ import { api, errorMessage, isApiError, type StartupEntry, type StartupSource } 
 import { publisherText } from "../lib/processTable";
 
 const SOURCE_LABEL: Record<StartupSource, string> = {
-  runUser: "Registry · người dùng",
-  runUser32: "Registry 32-bit · người dùng",
-  runMachine: "Registry · máy",
-  runMachine32: "Registry 32-bit · máy",
-  runOnceUser: "RunOnce · người dùng",
-  runOnceMachine: "RunOnce · máy",
-  runOnceMachine32: "RunOnce 32-bit · máy",
-  startupFolderUser: "Thư mục Startup · người dùng",
-  startupFolderCommon: "Thư mục Startup · mọi người dùng",
-  scheduledTask: "Tác vụ theo lịch",
-  service: "Dịch vụ",
-  packagedTask: "App Store (chỉ xem)",
+  runUser: "Registry · current user",
+  runUser32: "32-bit registry · current user",
+  runMachine: "Registry · system-wide",
+  runMachine32: "32-bit registry · system-wide",
+  runOnceUser: "RunOnce · current user",
+  runOnceMachine: "RunOnce · system-wide",
+  runOnceMachine32: "32-bit RunOnce · system-wide",
+  startupFolderUser: "Startup folder · current user",
+  startupFolderCommon: "Startup folder · all users",
+  scheduledTask: "Scheduled task",
+  service: "Service",
+  packagedTask: "Microsoft Store app (view only)",
 };
 
 type Tab = "apps" | "tasks" | "services";
 const TAB_OF = (s: StartupSource): Tab => (s === "scheduledTask" ? "tasks" : s === "service" ? "services" : "apps");
 const TABS: { id: Tab; label: string; hint: string }[] = [
-  { id: "apps", label: "Ứng dụng", hint: "Giống tab Startup của Task Manager — bật/tắt được" },
-  { id: "tasks", label: "Tác vụ khi đăng nhập", hint: "Scheduled task có trigger \"At log on\" — chỉ xem" },
-  { id: "services", label: "Dịch vụ tự khởi động", hint: "Service Start = Automatic — chỉ xem" },
+  { id: "apps", label: "Apps", hint: "Like Task Manager’s Startup tab — can be enabled or disabled" },
+  { id: "tasks", label: "Tasks at sign-in", hint: "Scheduled tasks triggered At log on — view only" },
+  { id: "services", label: "Auto-start services", hint: "Services with Start = Automatic — view only" },
 ];
 
 const isMicrosoft = (e: StartupEntry) =>
@@ -108,7 +108,7 @@ export default function Startup() {
     setMsg(null);
     try {
       await api.startupSetEnabled(e, enabled);
-      setMsg({ tone: "ok", text: `${enabled ? "Đã bật" : "Đã tắt"} ${e.name}. Có hiệu lực từ lần đăng nhập tới.` });
+      setMsg({ tone: "ok", text: `${enabled ? "Enabled" : "Disabled"} ${e.name}. Takes effect the next time you sign in.` });
       load();
     } catch (err) {
       // Backend trả code "forbidden" khi thiếu quyền (không dò chữ — thông báo của Windows theo ngôn ngữ máy).
@@ -143,7 +143,7 @@ export default function Startup() {
           e.command.toLowerCase().includes(q) ||
           publisherText(e.publisher).toLowerCase().includes(q),
       )
-      .sort((a, b) => Number(b.enabled) - Number(a.enabled) || a.name.localeCompare(b.name, "vi", { sensitivity: "base" }));
+      .sort((a, b) => Number(b.enabled) - Number(a.enabled) || a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
   }, [entries, tab, hideMs, query]);
 
   const appEntries = (entries ?? []).filter((e) => TAB_OF(e.source) === "apps");
@@ -151,24 +151,24 @@ export default function Startup() {
 
   return (
     <PageShell
-      title="Khởi động"
+      title="Startup"
       subtitle={
         entries
-          ? `${enabledApps} ứng dụng đang khởi động cùng Windows · ${appEntries.length - enabledApps} đã tắt`
-          : "Đang đọc registry, thư mục Startup và Task Scheduler…"
+          ? `${enabledApps} apps start with Windows · ${appEntries.length - enabledApps} disabled`
+          : "Reading the registry, Startup folders, and Task Scheduler…"
       }
       actions={
         // "Tải lại" nằm cạnh ô tìm kiếm (không ở hàng tab): chữ "(đang ẩn N)" dài/ngắn không đẩy nó xuống dòng.
         <div className="flex items-center gap-2">
           <input
             type="search"
-            placeholder="Tìm tên, lệnh, publisher…"
+            placeholder="Search name, command, or publisher…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className={`w-72 xl:w-96 ${INPUT}`}
           />
           <Button variant="ghost" size="sm" className="shrink-0" loading={reloading} onClick={reload}>
-            {!reloading && <IconRefresh />}Tải lại
+            {!reloading && <IconRefresh />}Refresh
           </Button>
         </div>
       }
@@ -188,13 +188,13 @@ export default function Startup() {
         {tab !== "apps" && (
           <label className="ml-2 flex items-center gap-2 whitespace-nowrap text-sm">
             <input type="checkbox" checked={hideMs} onChange={(e) => setHideMs(e.target.checked)} />
-            Ẩn mục của Microsoft
-            {hideMs && hiddenMs[tab] > 0 && <span className="opacity-60">(đang ẩn {hiddenMs[tab]})</span>}
+            Hide Microsoft entries
+            {hideMs && hiddenMs[tab] > 0 && <span className="opacity-60">({hiddenMs[tab]} hidden)</span>}
           </label>
         )}
       </div>
 
-      <p className="mt-2 text-xs opacity-60">{TABS.find((t) => t.id === tab)?.hint}. Bật/tắt dùng cùng cơ chế với Task Manager, không xoá mục gốc.</p>
+      <p className="mt-2 text-xs opacity-60">{TABS.find((t) => t.id === tab)?.hint}. Enable/disable works the same way as Task Manager and does not remove the original entry.</p>
 
       {msg && (
         <div className="mt-2">
@@ -209,7 +209,7 @@ export default function Startup() {
         </div>
       )}
       <div className="mt-2 empty:hidden">
-        <AdminNotice>Mục khởi động của máy (HKLM, thư mục Startup chung) chỉ bật/tắt được với quyền Administrator.</AdminNotice>
+        <AdminNotice>System-wide startup entries (HKLM and the common Startup folder) can only be enabled or disabled with administrator privileges.</AdminNotice>
       </div>
       {error && (
         <div className="mt-2">
@@ -221,10 +221,10 @@ export default function Startup() {
         <table className="w-full table-fixed text-sm">
           <thead className={THEAD}>
             <tr className="text-left">
-              <th className="px-3 py-2 font-medium opacity-70">Tên</th>
+              <th className="px-3 py-2 font-medium opacity-70">Name</th>
               <th className="w-56 px-3 py-2 font-medium opacity-70">Publisher</th>
-              <th className="w-56 px-3 py-2 font-medium opacity-70">Nguồn</th>
-              <th className="w-52 px-3 py-2 font-medium opacity-70">Trạng thái</th>
+              <th className="w-56 px-3 py-2 font-medium opacity-70">Source</th>
+              <th className="w-52 px-3 py-2 font-medium opacity-70">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -243,33 +243,33 @@ export default function Startup() {
                     {e.name}
                   </td>
                   <td className="truncate px-3">
-                    <PublisherCell p={e.publisher} empty={e.path ? "Không tìm thấy file" : "—"} />
+                    <PublisherCell p={e.publisher} empty={e.path ? "File not found" : "—"} />
                   </td>
                   <td className="truncate px-3 text-xs opacity-70">{SOURCE_LABEL[e.source]}</td>
                   <td className="px-3">
                     {e.canToggle ? (
                       <div className="flex items-center gap-2">
                         <Toggle on={e.enabled} disabled={busy !== null} onChange={(v) => toggle(e, v)} />
-                        <span className="text-xs">{busy === e.id ? "…" : e.enabled ? "Bật" : "Tắt"}</span>
+                        <span className="text-xs">{busy === e.id ? "…" : e.enabled ? "Enabled" : "Disabled"}</span>
                       </div>
                     ) : e.source === "packagedTask" ? (
                       // App Store: chỉ Windows (Task Manager) bật/tắt được — API StartupTask chạy trong chính app đó.
                       <div className="flex items-center gap-2">
-                        <span className="text-xs opacity-60">{e.enabled ? "Bật" : "Tắt"}</span>
+                        <span className="text-xs opacity-60">{e.enabled ? "Enabled" : "Disabled"}</span>
                         <Button
                           variant="ghost"
                           size="sm"
-                          title="Mở tab Startup của Task Manager để bật/tắt app Store"
+                          title="Open Task Manager’s Startup tab to enable or disable Store apps"
                           onClick={(ev) => {
                             ev.stopPropagation();
                             api.startupOpenSettings().catch((err) => setMsg({ tone: "error", text: errorMessage(err) }));
                           }}
                         >
-                          Mở Task Manager
+                          Open Task Manager
                         </Button>
                       </div>
                     ) : (
-                      <span className="text-xs opacity-60">{e.enabled ? "Bật" : "Tắt"} · chỉ xem</span>
+                      <span className="text-xs opacity-60">{e.enabled ? "Enabled" : "Disabled"} · view only</span>
                     )}
                   </td>
                 </tr>,
@@ -277,21 +277,21 @@ export default function Startup() {
                   <tr key={`${e.id}:d`} className="bg-accent/5">
                     <td colSpan={4} className="px-8 py-3 text-xs">
                       <dl className="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1">
-                        <dt className="opacity-60">Lệnh</dt>
+                        <dt className="opacity-60">Command</dt>
                         <dd className="break-all font-mono select-text">{e.command || "—"}</dd>
-                        <dt className="opacity-60">File thực thi</dt>
+                        <dt className="opacity-60">Executable</dt>
                         <dd className="break-all select-text">{e.path ?? "—"}</dd>
-                        <dt className="opacity-60">Khai báo tại</dt>
+                        <dt className="opacity-60">Location</dt>
                         <dd className="break-all select-text">{e.location}</dd>
                         {e.disabledAtMs != null && (
                           <>
-                            <dt className="opacity-60">Tắt lúc</dt>
-                            <dd>{new Date(e.disabledAtMs).toLocaleString("vi-VN")}</dd>
+                            <dt className="opacity-60">Disabled at</dt>
+                            <dd>{new Date(e.disabledAtMs).toLocaleString("en-US")}</dd>
                           </>
                         )}
                         {e.note && (
                           <>
-                            <dt className="opacity-60">{e.source === "scheduledTask" ? "Tác giả" : "Ghi chú"}</dt>
+                            <dt className="opacity-60">{e.source === "scheduledTask" ? "Author" : "Note"}</dt>
                             <dd>{e.note}</dd>
                           </>
                         )}
@@ -304,7 +304,7 @@ export default function Startup() {
             {entries && rows.length === 0 && (
               <tr>
                 <td colSpan={4} className="px-3 py-8 text-center text-sm opacity-50">
-                  Không có mục nào
+                  No entries found
                 </td>
               </tr>
             )}

@@ -135,12 +135,12 @@ mod tests {
         let m = windows::core::HSTRING::from(format!("Local\\PcManager.Test.{pid}.Mutex"));
         let e = windows::core::HSTRING::from(format!("Local\\PcManager.Test.{pid}.Show"));
         let (m, e) = (PCWSTR(m.as_ptr()), PCWSTR(e.as_ptr()));
-        let Acquire::First(first) = acquire_named(m, e, false).unwrap() else { panic!("lần 1 phải là bản đầu") };
-        assert!(!first.wait_show(Duration::ZERO), "chưa ai yêu cầu hiện cửa sổ");
+        let Acquire::First(first) = acquire_named(m, e, false).unwrap() else { panic!("the first acquisition must be the first instance") };
+        assert!(!first.wait_show(Duration::ZERO), "no request to show the window has been made");
         assert!(matches!(acquire_named(m, e, true).unwrap(), Acquire::AlreadyRunning));
-        assert!(first.wait_show(Duration::from_secs(1)), "bản sau phải báo được cho bản đầu");
+        assert!(first.wait_show(Duration::from_secs(1)), "the later instance should notify the first instance");
         drop(first);
-        assert!(matches!(acquire_named(m, e, false).unwrap(), Acquire::First(_)), "nhả xong thì giành lại được");
+        assert!(matches!(acquire_named(m, e, false).unwrap(), Acquire::First(_)), "the lock should be available again after release");
     }
 
     #[test]

@@ -13,17 +13,17 @@ CREATE TABLE IF NOT EXISTS action_log (
     id      INTEGER PRIMARY KEY AUTOINCREMENT,
     ts      INTEGER NOT NULL,          -- unix ms
     action  TEXT    NOT NULL,          -- vd: memory.boost
-    target  TEXT    NOT NULL,          -- đối tượng tác động
-    ok      INTEGER NOT NULL,          -- 1 = thành công
-    detail  TEXT    NOT NULL           -- kết quả / lỗi
+    target  TEXT    NOT NULL,          -- affected target
+    ok      INTEGER NOT NULL,          -- 1 = success
+    detail  TEXT    NOT NULL           -- result / error
 );
 CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
--- PC Manager tự lấy mẫu tiến trình đang chạy mỗi 60s (nguồn 'lần dùng cuối').
+-- PC Manager samples running processes every 60s (source for 'last used').
 CREATE TABLE IF NOT EXISTS app_usage (
-    exe_path   TEXT PRIMARY KEY,       -- viết thường
+    exe_path   TEXT PRIMARY KEY,       -- lowercase
     first_seen INTEGER NOT NULL,       -- unix ms
     last_seen  INTEGER NOT NULL
 );
@@ -54,7 +54,7 @@ impl Store {
         conn.execute_batch(SCHEMA)?;
         // Lỗi dọn bớt không được làm hỏng việc mở DB.
         if let Err(e) = prune(&conn, crate::settings::now_ms()) {
-            eprintln!("[store] không dọn bớt được dữ liệu cũ: {e}");
+            eprintln!("[store] Could not prune old data: {e}");
         }
         Ok(Self { conn: Mutex::new(conn) })
     }
@@ -77,7 +77,7 @@ impl Store {
     /// Như `log_action` nhưng không làm hỏng thao tác chính nếu ghi log lỗi.
     pub fn log_action_best_effort(&self, action: &str, target: &str, ok: bool, detail: &str) {
         if let Err(e) = self.log_action(action, target, ok, detail) {
-            eprintln!("[store] không ghi được log {action}: {e}");
+            eprintln!("[store] Could not write action log {action}: {e}");
         }
     }
 
@@ -201,7 +201,7 @@ mod tests {
         let count: i64 = s.conn().unwrap().query_row("SELECT COUNT(*) FROM action_log", [], |r| r.get(0)).unwrap();
         assert_eq!(count, KEEP_ACTIONS);
         let newest: i64 = s.conn().unwrap().query_row("SELECT MAX(ts) FROM action_log", [], |r| r.get(0)).unwrap();
-        assert_eq!(newest, KEEP_ACTIONS + 100, "giữ dòng mới nhất");
+        assert_eq!(newest, KEEP_ACTIONS + 100, "keep the newest entries");
         let usage: Vec<String> = s.usage().unwrap().into_iter().map(|(p, _)| p).collect();
         assert_eq!(usage, ["new.exe"]);
         drop(s);
@@ -226,7 +226,7 @@ mod tests {
         let s = Store::in_memory().unwrap();
         s.record_usage(&[r"C:\App\A.exe".into()], 1000).unwrap();
         s.record_usage(&[r"c:\app\a.exe".into(), r"C:\B.exe".into()], 5000).unwrap();
-        s.record_usage(&[r"C:\App\A.exe".into()], 3000).unwrap(); // mẫu cũ đến muộn
+        s.record_usage(&[r"C:\App\A.exe".into()], 3000).unwrap(); // an older sample arrived late
         let mut u = s.usage().unwrap();
         u.sort();
         assert_eq!(u, vec![(r"c:\app\a.exe".into(), 5000), (r"c:\b.exe".into(), 5000)]);
@@ -240,7 +240,7 @@ mod tests {
         s.set_setting("x", "20").unwrap();
         s.set_setting("x", "25").unwrap();
         assert_eq!(s.setting_or("x", 15u8), 25);
-        s.set_setting("x", "rác").unwrap();
+        s.set_setting("x", "garbage").unwrap();
         assert_eq!(s.setting_or("x", 15u8), 15);
     }
 }

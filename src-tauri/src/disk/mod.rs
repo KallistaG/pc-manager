@@ -153,10 +153,10 @@ pub struct DiskGuard {
 
 impl DiskGuard {
     pub fn new(ctx: &BanCtx) -> Self {
-        let mut under = vec![(norm(&ctx.windows), "thư mục Windows")];
-        under.extend(ctx.program_files.iter().filter(|p| !p.is_empty()).map(|p| (norm(p), "thư mục cài ứng dụng")));
+        let mut under = vec![(norm(&ctx.windows), "Windows folder")];
+        under.extend(ctx.program_files.iter().filter(|p| !p.is_empty()).map(|p| (norm(p), "application installation folder")));
         if !ctx.program_data.is_empty() {
-            under.push((norm(&ctx.program_data), "dữ liệu hệ thống ProgramData"));
+            under.push((norm(&ctx.program_data), "ProgramData system data"));
         }
         let app_data = if ctx.user_profile.is_empty() { String::new() } else { norm(&format!(r"{}\AppData", ctx.user_profile)) };
         Self { under, user_profile: norm(&ctx.user_profile), app_data }
@@ -169,8 +169,8 @@ impl DiskGuard {
         let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
         let disk_image = matches!(ext.as_str(), "vhdx" | "vhd" | "vmdk" | "vdi" | "img" | "qcow2");
         match (in_app_data, disk_image) {
-            (_, true) => Some("ổ đĩa ảo của máy ảo/WSL/Docker — xoá sẽ mất toàn bộ dữ liệu bên trong".into()),
-            (true, false) => Some("dữ liệu của ứng dụng (AppData) — ứng dụng có thể lỗi hoặc tạo lại".into()),
+            (_, true) => Some("Virtual disk used by a VM, WSL, or Docker — deleting it will remove all data inside.".into()),
+            (true, false) => Some("Application data (AppData) — the app may stop working or recreate it.".into()),
             _ => None,
         }
     }
@@ -184,13 +184,13 @@ impl DiskGuard {
         for c in path.components() {
             match c {
                 Component::Prefix(p) if !matches!(p.kind(), Prefix::Disk(_) | Prefix::VerbatimDisk(_)) => {
-                    return Some("ổ mạng / đường dẫn đặc biệt")
+                    return Some("network drive or special path")
                 }
-                Component::CurDir | Component::ParentDir => return Some("đường dẫn không hợp lệ"),
+                Component::CurDir | Component::ParentDir => return Some("invalid path"),
                 Component::Normal(n) => {
                     let n = n.to_string_lossy().to_lowercase();
                     if n == "$recycle.bin" || n == "system volume information" {
-                        return Some("thư mục hệ thống");
+                        return Some("system folder");
                     }
                     normals += 1;
                 }
@@ -198,18 +198,18 @@ impl DiskGuard {
             }
         }
         if !path.is_absolute() || normals <= 1 {
-            return Some("file ở gốc ổ đĩa (pagefile, hiberfil…)");
+            return Some("file in the drive root (pagefile, hiberfil…)");
         }
         let s = norm(&path.to_string_lossy());
         if crate::settings::is_protected(&s) {
-            return Some("nằm trong danh sách bảo vệ của bạn");
+            return Some("inside a protected folder");
         }
         if let Some((_, why)) = self.under.iter().find(|(b, _)| s == *b || s.strip_prefix(b.as_str()).is_some_and(|r| r.starts_with('\\'))) {
             return Some(why);
         }
         let parent = path.parent().map(|p| norm(&p.to_string_lossy())).unwrap_or_default();
         if !self.user_profile.is_empty() && parent == self.user_profile {
-            return Some("file hồ sơ người dùng (ntuser.dat…)");
+            return Some("user profile file (ntuser.dat…)");
         }
         None
     }
@@ -251,7 +251,7 @@ pub fn validate_root(root: &str) -> AppResult<PathBuf> {
     let p = PathBuf::from(root.trim());
     let local = matches!(p.components().next(), Some(Component::Prefix(x)) if matches!(x.kind(), Prefix::Disk(_)));
     if !local || !p.is_absolute() || !p.is_dir() {
-        return Err(AppError::InvalidInput(format!("'{root}' không phải thư mục trên ổ đĩa cục bộ")));
+        return Err(AppError::InvalidInput(format!("'{root}' is not a folder on a local drive")));
     }
     Ok(p)
 }
@@ -282,7 +282,7 @@ impl DiskManager {
     }
 
     fn begin(&self) -> AppResult<std::sync::MutexGuard<'_, ()>> {
-        let g = self.running.try_lock_recover().ok_or_else(|| AppError::Busy("đang có một lần quét đĩa khác".into()))?;
+        let g = self.running.try_lock_recover().ok_or_else(|| AppError::Busy("Another disk scan is already running".into()))?;
         self.cancel.store(false, Ordering::Relaxed);
         Ok(g)
     }
@@ -449,7 +449,7 @@ impl DiskManager {
                 Some(s) if s.id == scan_id && s.at.elapsed() < SCAN_TTL => s,
                 other => {
                     *last = other;
-                    return Err(AppError::InvalidInput("kết quả quét đã cũ — hãy quét lại".into()));
+                    return Err(AppError::InvalidInput("The scan result has expired — please scan again".into()));
                 }
             }
         };
@@ -465,7 +465,7 @@ impl DiskManager {
             }
             on_progress(DiskProgress { phase: "recycle", files: report.recycled.into(), bytes: report.recycled_bytes, done: i as u64, total });
             let result = if refused.contains(&id) {
-                Err("phải giữ lại ít nhất một bản trong nhóm".to_owned())
+                Err("At least one copy in the group must be kept".to_owned())
             } else {
                 recycle_one(&guard, f, &scan.files, id)
             };
@@ -517,17 +517,17 @@ fn mtime_ms(m: &std::fs::Metadata) -> Option<i64> {
 
 fn recycle_one(guard: &DiskGuard, f: &Stored, all: &HashMap<u32, Stored>, id: u32) -> Result<(), String> {
     if f.blocked {
-        return Err("file này không được phép xoá".into());
+        return Err("This file cannot be deleted".into());
     }
     if let Some(why) = guard.check(&f.path) {
-        return Err(format!("bị chặn: {why}"));
+        return Err(format!("Blocked: {why}"));
     }
-    let meta = std::fs::symlink_metadata(&f.path).map_err(|_| "file không còn tồn tại".to_owned())?;
+    let meta = std::fs::symlink_metadata(&f.path).map_err(|_| "File no longer exists".to_owned())?;
     if is_link_or_cloud(&meta) || !meta.is_file() {
-        return Err("không phải file thường".into());
+        return Err("Not a regular file".into());
     }
     if meta.file_size() != f.size || mtime_ms(&meta) != f.modified_ms {
-        return Err("file đã thay đổi từ lúc quét — hãy quét lại".into());
+        return Err("File changed since the scan — please scan again".into());
     }
     // File trùng: bản giữ lại phải vẫn còn nguyên.
     if let Some(g) = f.group {
@@ -535,12 +535,12 @@ fn recycle_one(guard: &DiskGuard, f: &Stored, all: &HashMap<u32, Stored>, id: u3
             *oid != id && o.group == Some(g) && std::fs::symlink_metadata(&o.path).is_ok_and(|m| m.is_file() && m.file_size() == f.size)
         });
         if !kept {
-            return Err("không còn bản nào khác trong nhóm — giữ lại file này".into());
+            return Err("No other copy remains in the group — this file must be kept".into());
         }
     }
     crate::user::recycle::move_to_recycle_bin(&f.path)?;
     if f.path.exists() {
-        return Err("chưa chuyển được (file đang mở?)".into());
+        return Err("Could not move the file (is it open?)".into());
     }
     Ok(())
 }
@@ -621,9 +621,9 @@ mod tests {
         std::fs::write(dir.join("sub").join("big-copy.bin"), vec![2u8; 300_001]).unwrap(); // đổi size => bản còn lại cũng bị từ chối
         let r = m.recycle(&store, dups.scan_id, &ids, &|_| {}).unwrap();
         assert_eq!(r.recycled, 0);
-        assert!(r.items.iter().any(|o| o.id == first && o.message.as_deref() == Some("phải giữ lại ít nhất một bản trong nhóm")));
+        assert!(r.items.iter().any(|o| o.id == first && o.message.as_deref() == Some("At least one copy in the group must be kept")));
         assert!(dir.join("big.bin").exists() && dir.join("sub").join("big-copy.bin").exists());
-        assert!(m.recycle(&store, 999, &[0], &|_| {}).is_err(), "scan id sai");
+        assert!(m.recycle(&store, 999, &[0], &|_| {}).is_err(), "invalid scan ID");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
@@ -634,7 +634,7 @@ mod real {
 
     /// Chẩn đoán: `cargo test --release --lib print_disk -- --ignored --nocapture` (PCM_ROOT để đổi thư mục).
     #[test]
-    #[ignore = "chỉ để xem dữ liệu thật"]
+    #[ignore = "prints real machine data only"]
     fn print_disk() {
         let root = std::env::var("PCM_ROOT").unwrap_or_else(|_| std::env::var("USERPROFILE").unwrap());
         let m = DiskManager::default();
@@ -644,7 +644,7 @@ mod real {
             println!("  {:>8} MB {} {:?}", f.size >> 20, f.path, f.blocked);
         }
         let d = m.scan_duplicates(Path::new(&root), 1 << 20, &|_| {}).unwrap();
-        println!("dup: {} nhóm, lãng phí {} MB trong {} ms", d.groups.len(), d.wasted_bytes >> 20, d.duration_ms);
+        println!("Duplicates: {} groups, {} MB wasted in {} ms", d.groups.len(), d.wasted_bytes >> 20, d.duration_ms);
         for g in d.groups.iter().take(3) {
             println!("  {} MB x{}: {}", g.size >> 20, g.files.len(), g.files[0].path);
         }

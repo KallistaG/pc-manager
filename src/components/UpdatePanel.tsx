@@ -15,13 +15,13 @@ export function UpdateSettings() {
     <div className="grid gap-3 text-sm">
       <div className="flex flex-wrap items-center gap-3">
         <span>
-          Phiên bản hiện tại: <b>{info?.current ?? "…"}</b>
+          Current version: <b>{info?.current ?? "…"}</b>
         </span>
         <Button variant="ghost" size="sm" loading={checking} disabled={installing} onClick={() => check(true)}>
-          Kiểm tra cập nhật
+          Check for updates
         </Button>
         {info?.lastCheckMs != null && !checking && (
-          <span className="text-xs opacity-60">Lần kiểm tra gần nhất: {new Date(info.lastCheckMs).toLocaleString("vi-VN")}</span>
+          <span className="text-xs opacity-60">Last checked: {new Date(info.lastCheckMs).toLocaleString("en-US")}</span>
         )}
       </div>
       <label className="flex cursor-pointer items-center gap-2">
@@ -32,17 +32,16 @@ export function UpdateSettings() {
           disabled={!info}
           onChange={(e) => setAuto(e.target.checked)}
         />
-        Tự kiểm tra bản mới khi mở PC Manager (tối đa 1 lần/ngày)
+        Automatically check for updates when PC Manager opens (at most once a day)
       </label>
       <p className="text-xs opacity-60">
-        Chỉ gửi một yêu cầu tới github.com để đọc phiên bản mới nhất — không gửi dữ liệu gì về máy bạn. Không bao giờ tự cài: bản mới
-        chỉ được tải khi bạn bấm Cập nhật, chữ ký được kiểm tra trước khi chạy bộ cài, và Windows sẽ hỏi UAC.
+        PC Manager only requests the latest version from github.com and sends no information about your PC. Updates are never installed automatically: they are downloaded only after you click Update, verified before the installer runs, and Windows will ask for UAC confirmation.
       </p>
       {a && (
         <div className="grid gap-2 rounded-xl border border-accent/40 p-3">
           <div className="font-medium">
-            Có bản mới {a.version}
-            {a.dateMs != null && <span className="font-normal opacity-60"> · phát hành {formatDate(a.dateMs)}</span>}
+            New version available: {a.version}
+            {a.dateMs != null && <span className="font-normal opacity-60"> · released {formatDate(a.dateMs)}</span>}
           </div>
           {a.notes && (
             // "Có gì mới" là markdown của CHANGELOG: chỉ làm đậm dòng tiêu đề, phần còn lại hiện như chữ thường.
@@ -66,23 +65,23 @@ export function UpdateSettings() {
               pct={pct}
               label={
                 progress
-                  ? `Đang tải ${formatBytes(progress.downloaded)}${progress.total ? ` / ${formatBytes(progress.total)}` : ""} — xong sẽ chạy bộ cài (UAC)`
-                  : "Đang bắt đầu tải…"
+                  ? `Downloading ${formatBytes(progress.downloaded)}${progress.total ? ` / ${formatBytes(progress.total)}` : ""} — the installer will run when complete (UAC)`
+                  : "Starting download…"
               }
             />
           ) : (
             <div>
               <Button size="sm" disabled={!info?.configured} onClick={install}>
-                Cập nhật lên {a.version}
+                Update to {a.version}
               </Button>
             </div>
           )}
           {!info?.configured && (
-            <Notice tone="warn">Bản PC Manager này chưa có khoá kiểm chữ ký cập nhật — hãy tải bản mới từ trang GitHub Release.</Notice>
+            <Notice tone="warn">This build of PC Manager cannot verify update signatures — download the latest release from GitHub.</Notice>
           )}
         </div>
       )}
-      {info && !a && info.lastCheckMs != null && !checking && !error && <p className="text-xs opacity-60">Bạn đang dùng bản mới nhất.</p>}
+      {info && !a && info.lastCheckMs != null && !checking && !error && <p className="text-xs opacity-60">You are using the latest version.</p>}
       {error && <Notice tone="error">{error}</Notice>}
     </div>
   );
@@ -99,9 +98,9 @@ export function UpdateBanner() {
     <div className="mb-4">
       <Notice tone="ok" onClose={() => setHidden(a.version)}>
         <span className="flex flex-wrap items-center gap-2">
-          Có bản PC Manager mới: <b>{a.version}</b> (đang dùng {info?.current}).
+          A new version of PC Manager is available: <b>{a.version}</b> (currently using {info?.current}).
           <Button size="sm" variant="ghost" onClick={() => navigate("settings")}>
-            Xem & cập nhật
+            View & update
           </Button>
         </span>
       </Notice>

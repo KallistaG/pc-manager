@@ -57,7 +57,7 @@ fn spawn_auto_smart_boost(app: AppHandle) {
             });
         })
         .map(|_| ())
-        .unwrap_or_else(|e| eprintln!("không tạo được thread auto smart boost: {e}"));
+        .unwrap_or_else(|e| eprintln!("Could not create the automatic Smart Boost thread: {e}"));
 }
 
 /// Lấy mẫu tiến trình đang chạy mỗi 60s (kể cả khi cửa sổ ẩn ở tray) để biết
@@ -76,7 +76,7 @@ fn spawn_usage_sampler(app: AppHandle) {
             }
         })
         .map(|_| ())
-        .unwrap_or_else(|e| eprintln!("không tạo được thread usage sampler: {e}"));
+        .unwrap_or_else(|e| eprintln!("Could not create the usage sampler thread: {e}"));
 }
 
 /// Chờ sau khi đóng cửa sổ rồi mới thu gọn bộ nhớ (để WebView2 giải phóng xong).
@@ -115,7 +115,7 @@ fn spawn_auto_clean(app: AppHandle) {
                 cfg.last_run_ms = Some(settings::now_ms());
                 let _ = cfg.save(&state.store);
                 let result = sync::survive("auto-clean", || state.cleaner.auto_clean(&state.store, &cfg.rule_ids))
-                    .unwrap_or_else(|| Err(error::AppError::Internal("dọn rác tự động".into())));
+                    .unwrap_or_else(|| Err(error::AppError::Internal("automatic junk cleanup".into())));
                 // Người dùng đang quét/dọn tay => lượt này chưa chạy: trả lại mốc cũ để lần kiểm tra sau
                 // (30 phút) thử lại, thay vì bỏ cả kỳ (1/7/30 ngày). Đọc lại cài đặt vì có thể vừa bị đổi.
                 if matches!(result, Err(error::AppError::Busy(_))) {
@@ -125,14 +125,14 @@ fn spawn_auto_clean(app: AppHandle) {
                     continue;
                 }
                 let detail = match &result {
-                    Ok(r) => format!("{} file, {} byte", r.deleted_files, r.freed_bytes),
+                    Ok(r) => format!("{} files, {} bytes", r.deleted_files, r.freed_bytes),
                     Err(e) => e.to_string(),
                 };
                 state.store.log_action_best_effort("cleaner.auto", &cfg.rule_ids.join(","), result.is_ok(), &detail);
             }
         })
         .map(|_| ())
-        .unwrap_or_else(|e| eprintln!("không tạo được thread auto clean: {e}"));
+        .unwrap_or_else(|e| eprintln!("Could not create the automatic cleanup thread: {e}"));
 }
 
 /// Luồng nhận yêu cầu "hiện cửa sổ" khi người dùng mở app lần nữa.
@@ -148,7 +148,7 @@ fn spawn_show_listener(app: AppHandle, guard: sys::instance::InstanceGuard) {
             }
         })
         .map(|_| ())
-        .unwrap_or_else(|e| eprintln!("không tạo được thread single-instance: {e}"));
+        .unwrap_or_else(|e| eprintln!("Could not create the single-instance thread: {e}"));
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -166,7 +166,7 @@ pub fn run() {
         Ok(sys::instance::Acquire::First(g)) => Some(g),
         Ok(sys::instance::Acquire::AlreadyRunning) => return,
         Err(e) => {
-            eprintln!("không kiểm tra được bản đang chạy: {e}");
+            eprintln!("Could not check for an existing instance: {e}");
             None
         }
     };
@@ -210,7 +210,7 @@ pub fn run() {
                     // Người dùng đã mở lại cửa sổ trong lúc chờ => không thu gọn.
                     if app.get_webview_window(tray::MAIN_WINDOW).is_none() {
                         if let Err(e) = sys::process::trim_self() {
-                            eprintln!("không thu gọn được bộ nhớ: {e}");
+                            eprintln!("Could not trim memory: {e}");
                         }
                     }
                 });
@@ -275,7 +275,7 @@ pub fn run() {
             }
         }),
         Err(e) => {
-            eprintln!("Không khởi động được PC Manager: {e}");
+            eprintln!("Could not start PC Manager: {e}");
             std::process::exit(1);
         }
     }

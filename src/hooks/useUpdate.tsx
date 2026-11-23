@@ -76,6 +76,6 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
 
 export function useUpdate(): UpdateState {
   const v = useContext(Ctx);
-  if (!v) throw new Error("useUpdate phải nằm trong UpdateProvider");
+  if (!v) throw new Error("useUpdate must be used within UpdateProvider");
   return v;
 }

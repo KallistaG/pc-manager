@@ -147,7 +147,7 @@ mod tests {
         b[60..68].copy_from_slice(&ft.to_le_bytes());
         assert_eq!(parse_data(&b), Some((7, Some(1_704_067_200_000))));
         assert_eq!(parse_data(&[0u8; 72]), Some((0, None)));
-        assert_eq!(parse_data(&[0u8; 16]), None, "định dạng XP");
+        assert_eq!(parse_data(&[0u8; 16]), None, "XP format");
     }
 
     #[test]

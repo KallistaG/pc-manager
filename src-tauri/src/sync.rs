@@ -35,7 +35,7 @@ pub fn survive<R>(what: &str, f: impl FnOnce() -> R) -> Option<R> {
     match catch_unwind(AssertUnwindSafe(f)) {
         Ok(r) => Some(r),
         Err(_) => {
-            eprintln!("[{what}] lỗi nội bộ, bỏ qua lượt này");
+            eprintln!("[{what}] internal error; skipping this iteration");
             None
         }
     }
@@ -51,7 +51,7 @@ mod tests {
         let m2 = m.clone();
         let _ = std::thread::spawn(move || {
             let _g = m2.lock().unwrap();
-            panic!("cố ý panic khi giữ khoá");
+            panic!("intentional panic while holding the lock");
         })
         .join();
         assert!(m.is_poisoned());
@@ -75,7 +75,7 @@ mod tests {
     #[test]
     fn survive_swallows_panic_and_keeps_going() {
         assert_eq!(survive("test", || 5), Some(5));
-        assert_eq!(survive("test", || -> u32 { panic!("lỗi một lượt") }), None);
+        assert_eq!(survive("test", || -> u32 { panic!("one iteration failed") }), None);
         // Sau panic vẫn gọi tiếp bình thường.
         assert_eq!(survive("test", || "ok"), Some("ok"));
     }

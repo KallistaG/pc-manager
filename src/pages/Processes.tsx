@@ -15,11 +15,11 @@ import { groupByName, matches, procKey, sortRows, type Group, type Sort, type So
 type Action = "open" | "trim" | "priority" | "suspend" | "resume" | "kill" | "killGroup";
 
 const PRIORITY_LABEL: Record<PriorityClass, string> = {
-  idle: "Thấp",
-  belowNormal: "Dưới bình thường",
-  normal: "Bình thường",
-  aboveNormal: "Trên bình thường",
-  high: "Cao",
+  idle: "Idle",
+  belowNormal: "Below normal",
+  normal: "Normal",
+  aboveNormal: "Above normal",
+  high: "High",
 };
 
 const samePublisher = (a: Publisher, b: Publisher) =>
@@ -51,7 +51,7 @@ const ProcRow = memo(
             {p.protectedReason && <IconLock className="h-3.5 w-3.5 shrink-0 opacity-60" />}
             <span className="truncate">{p.name}</span>
             {p.suspended && (
-              <span className="ml-1 shrink-0 rounded bg-amber-500/20 px-1.5 text-xs text-amber-700 dark:text-amber-300">Tạm dừng</span>
+              <span className="ml-1 shrink-0 rounded bg-amber-500/20 px-1.5 text-xs text-amber-700 dark:text-amber-300">Suspended</span>
             )}
           </div>
         </td>
@@ -93,7 +93,7 @@ const GroupRow = memo(
         <td className="truncate py-1.5 pl-3 pr-2">
           <button
             type="button"
-            aria-label={open ? "Thu gọn" : "Mở rộng"}
+            aria-label={open ? "Collapse" : "Expand"}
             onClick={(e) => {
               e.stopPropagation();
               onToggle(g.key);
@@ -129,12 +129,12 @@ const GroupRow = memo(
 );
 
 const COLUMNS: { key: SortKey; label: string; cls: string }[] = [
-  { key: "name", label: "Tên", cls: "w-[28%] text-left" },
+  { key: "name", label: "Name", cls: "w-[28%] text-left" },
   { key: "pid", label: "PID", cls: "w-20 text-right" },
   { key: "cpu", label: "CPU", cls: "w-20 text-right" },
   { key: "memory", label: "RAM", cls: "w-24 text-right" },
   { key: "publisher", label: "Publisher", cls: "w-48 text-left xl:w-64" },
-  { key: "path", label: "Đường dẫn", cls: "text-left" },
+  { key: "path", label: "Path", cls: "text-left" },
 ];
 
 export default function Processes() {
@@ -175,7 +175,7 @@ export default function Processes() {
     setMsg(null);
     try {
       const r = await fn();
-      setMsg({ tone: "ok", text: r.trimmedBytes != null ? `${label}: giảm ${formatBytes(r.trimmedBytes)} RAM` : `${label}: xong` });
+      setMsg({ tone: "ok", text: r.trimmedBytes != null ? `${label}: freed ${formatBytes(r.trimmedBytes)} RAM` : `${label}: done` });
       refresh();
     } catch (e) {
       setMsg({ tone: "error", text: `${label}: ${errorMessage(e)}` });
@@ -188,30 +188,30 @@ export default function Processes() {
 
   const killOne = (p: ProcessInfo) =>
     ask({
-      title: `Kết thúc ${p.name}?`,
+      title: `End ${p.name}?`,
       body: (
         <>
-          PID {p.pid}. Dữ liệu chưa lưu trong ứng dụng này sẽ bị mất.
+          PID {p.pid}. Any unsaved data in this app will be lost.
           {p.path && <div className="mt-1 break-all text-xs opacity-70">{p.path}</div>}
         </>
       ),
-      confirmLabel: "Kết thúc",
+      confirmLabel: "End process",
       danger: true,
-      onConfirm: () => run("kill", `Kết thúc ${p.name}`, () => api.processKill(p)),
+      onConfirm: () => run("kill", `End ${p.name}`, () => api.processKill(p)),
     });
 
   const killGroup = (g: Group) => {
     const targets = g.members.filter((m) => !m.protectedReason);
     ask({
-      title: `Kết thúc ${targets.length} tiến trình ${g.name}?`,
-      body: "Toàn bộ cửa sổ của ứng dụng này sẽ đóng, dữ liệu chưa lưu sẽ bị mất.",
-      confirmLabel: "Kết thúc tất cả",
+      title: `End ${targets.length} ${g.name} process${targets.length === 1 ? "" : "es"}?`,
+      body: "All windows for this app will close, and any unsaved data will be lost.",
+      confirmLabel: "End all",
       danger: true,
       onConfirm: () =>
-        run("killGroup", `Kết thúc ${g.name}`, async () => {
+        run("killGroup", `End ${g.name}`, async () => {
           const results = await Promise.allSettled(targets.map((m) => api.processKill(m)));
           const failed = results.filter((r) => r.status === "rejected").length;
-          if (failed) throw new Error(`${failed}/${targets.length} tiến trình không kết thúc được`);
+          if (failed) throw new Error(`${failed}/${targets.length} processes could not be ended`);
           return { trimmedBytes: null };
         }),
     });
@@ -219,31 +219,31 @@ export default function Processes() {
 
   const suspend = (p: ProcessInfo) =>
     ask({
-      title: `Tạm dừng ${p.name}?`,
-      body: "Ứng dụng sẽ đứng hình (không phản hồi) cho tới khi bạn bấm Tiếp tục. Không tạm dừng ứng dụng đang ghi file hoặc tải dữ liệu.",
-      confirmLabel: "Tạm dừng",
-      onConfirm: () => run("suspend", `Tạm dừng ${p.name}`, () => api.processSuspend(p)),
+      title: `Suspend ${p.name}?`,
+      body: "The app will freeze (stop responding) until you resume it. Do not suspend an app that is writing files or downloading data.",
+      confirmLabel: "Suspend",
+      onConfirm: () => run("suspend", `Suspend ${p.name}`, () => api.processSuspend(p)),
     });
 
   const trim = (p: ProcessInfo) =>
     ask({
-      title: `Giảm RAM của ${p.name}?`,
-      body: "Windows sẽ đẩy bộ nhớ của tiến trình này ra cache/pagefile. Ứng dụng có thể chậm một chút khi dùng lại.",
-      confirmLabel: "Giảm RAM",
-      onConfirm: () => run("trim", `Giảm RAM ${p.name}`, () => api.processTrim(p)),
+      title: `Trim memory for ${p.name}?`,
+      body: "Windows will move this process’s memory to the cache/pagefile. The app may be a little slower the next time you use it.",
+      confirmLabel: "Trim memory",
+      onConfirm: () => run("trim", `Trim memory for ${p.name}`, () => api.processTrim(p)),
     });
 
   const setPriority = (p: ProcessInfo, pr: PriorityClass) =>
     ask({
-      title: `Đổi ưu tiên ${p.name}?`,
+      title: `Change ${p.name} priority?`,
       body: (
         <>
-          Từ <b>{p.priority ? PRIORITY_LABEL[p.priority] : "?"}</b> sang <b>{PRIORITY_LABEL[pr]}</b>. Thay đổi mất khi ứng dụng khởi động lại.
-          {pr === "high" && <div className="mt-1 text-amber-600">Ưu tiên Cao có thể làm các ứng dụng khác chậm lại.</div>}
+          Change from <b>{p.priority ? PRIORITY_LABEL[p.priority] : "?"}</b> to <b>{PRIORITY_LABEL[pr]}</b>. This change is reset when the app restarts.
+          {pr === "high" && <div className="mt-1 text-amber-600">High priority may slow down other apps.</div>}
         </>
       ),
-      confirmLabel: "Đổi",
-      onConfirm: () => run("priority", `Đổi ưu tiên ${p.name}`, () => api.processSetPriority(p, pr)),
+      confirmLabel: "Change",
+      onConfirm: () => run("priority", `Change priority for ${p.name}`, () => api.processSetPriority(p, pr)),
     });
 
   const onSort = (key: SortKey) =>
@@ -286,17 +286,17 @@ export default function Processes() {
 
   return (
     <PageShell
-      title="Tiến trình"
-      subtitle={snap ? `${snap.processes.length} tiến trình · CPU ${snap.totalCpuPct.toFixed(0)}% · ${snap.cpuCount} luồng CPU` : "Đang tải…"}
+      title="Processes"
+      subtitle={snap ? `${snap.processes.length} processes · CPU ${snap.totalCpuPct.toFixed(0)}% · ${snap.cpuCount} logical processors` : "Loading…"}
       actions={
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={grouped} onChange={(e) => setGrouped(e.target.checked)} />
-            Gộp theo ứng dụng
+            Group by app
           </label>
           <input
             type="search"
-            placeholder="Tìm tên, PID, đường dẫn, publisher…"
+            placeholder="Search name, PID, path, or publisher…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className={`w-72 xl:w-96 ${INPUT}`}
@@ -304,7 +304,7 @@ export default function Processes() {
         </div>
       }
     >
-      {/* Thanh thao tác cho dòng đang chọn */}
+      {/* Actions for the selected row. */}
       <div className={`flex min-h-11 flex-wrap items-center gap-1 px-3 py-1.5 ${SURFACE}`}>
         {p && (
           <>
@@ -316,12 +316,12 @@ export default function Processes() {
               size="sm"
               loading={busyAction === "open"}
               disabled={busy || !p.path}
-              onClick={() => run("open", "Mở vị trí", () => api.processOpenLocation(p))}
+              onClick={() => run("open", "Open location", () => api.processOpenLocation(p))}
             >
-              Mở vị trí file
+              Open file location
             </Button>
             <Button variant="ghost" size="sm" loading={busyAction === "trim"} disabled={busy || locked} onClick={() => trim(p)}>
-              Giảm RAM
+              Trim memory
             </Button>
             <select
               value=""
@@ -329,7 +329,7 @@ export default function Processes() {
               onChange={(e) => e.target.value && setPriority(p, e.target.value as PriorityClass)}
               className={`${SELECT} disabled:cursor-not-allowed disabled:opacity-45`}
             >
-              <option value="">Ưu tiên: {p.priority ? PRIORITY_LABEL[p.priority] : "?"}</option>
+              <option value="">Priority: {p.priority ? PRIORITY_LABEL[p.priority] : "?"}</option>
               {(Object.keys(PRIORITY_LABEL) as PriorityClass[])
                 .filter((k) => k !== p.priority)
                 .map((k) => (
@@ -344,13 +344,13 @@ export default function Processes() {
                 size="sm"
                 loading={busyAction === "resume"}
                 disabled={busy}
-                onClick={() => run("resume", `Tiếp tục ${p.name}`, () => api.processResume(p))}
+                onClick={() => run("resume", `Resume ${p.name}`, () => api.processResume(p))}
               >
-                Tiếp tục
+                Resume
               </Button>
             ) : (
               <Button variant="ghost" size="sm" loading={busyAction === "suspend"} disabled={busy || locked} onClick={() => suspend(p)}>
-                Tạm dừng
+                Suspend
               </Button>
             )}
             <Button
@@ -361,7 +361,7 @@ export default function Processes() {
               disabled={busy || locked}
               onClick={() => killOne(p)}
             >
-              Kết thúc
+              End process
             </Button>
             {locked && (
               <span className="ml-2 inline-flex items-center gap-1 text-xs opacity-60">
@@ -373,10 +373,10 @@ export default function Processes() {
         {selectedGroup && (
           <>
             <span className="mr-2 text-sm font-medium">
-              {selectedGroup.name} <span className="font-normal opacity-60">· {selectedGroup.members.length} tiến trình</span>
+              {selectedGroup.name} <span className="font-normal opacity-60">· {selectedGroup.members.length} processes</span>
             </span>
             <Button variant="ghost" size="sm" onClick={() => toggle(selectedGroup.key)}>
-              {expanded.has(selectedGroup.key) ? "Thu gọn" : "Xem từng tiến trình"}
+              {expanded.has(selectedGroup.key) ? "Collapse" : "Show individual processes"}
             </Button>
             <Button
               variant="ghost"
@@ -386,11 +386,11 @@ export default function Processes() {
               disabled={busy || selectedGroup.members.every((m) => m.protectedReason)}
               onClick={() => killGroup(selectedGroup)}
             >
-              Kết thúc tất cả
+              End all
             </Button>
           </>
         )}
-        {!p && !selectedGroup && <span className="text-sm opacity-50">Chọn một tiến trình để thao tác</span>}
+        {!p && !selectedGroup && <span className="text-sm opacity-50">Select a process to take action</span>}
       </div>
 
       {msg && (
@@ -399,7 +399,7 @@ export default function Processes() {
         </div>
       )}
       <div className="mt-2 empty:hidden">
-        <AdminNotice>Tiến trình của hệ thống / tài khoản khác chỉ kết thúc, tạm dừng hay đổi ưu tiên được với quyền Administrator.</AdminNotice>
+        <AdminNotice>System processes and processes owned by other accounts can only be ended, suspended, or reprioritized with administrator privileges.</AdminNotice>
       </div>
       {error && (
         <div className="mt-2">

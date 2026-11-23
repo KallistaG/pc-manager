@@ -32,7 +32,7 @@ where
     T: Send + 'static,
     F: FnOnce(&AppState) -> AppResult<T> + Send + 'static,
 {
-    super::blocking(app, "đọc/lưu cài đặt", f).await
+    super::blocking(app, "reading/saving settings", f).await
 }
 
 #[tauri::command]
@@ -59,7 +59,7 @@ pub async fn settings_get(app: AppHandle) -> AppResult<GeneralSettings> {
 #[tauri::command]
 pub async fn settings_set_auto_clean(app: AppHandle, enabled: bool, interval_days: u32, rule_ids: Vec<String>) -> AppResult<AutoClean> {
     if ![1, 7, 30].contains(&interval_days) || rule_ids.len() > 64 {
-        return Err(AppError::InvalidInput("lịch dọn không hợp lệ".into()));
+        return Err(AppError::InvalidInput("Invalid cleanup schedule".into()));
     }
     blocking(app, move |s| {
         let eligible: Vec<String> = s.cleaner.auto_eligible().into_iter().map(|(id, _, _)| id).collect();
@@ -72,7 +72,7 @@ pub async fn settings_set_auto_clean(app: AppHandle, enabled: bool, interval_day
             "settings.auto_clean",
             "auto_clean",
             true,
-            &format!("{} mỗi {interval_days} ngày: {}", if a.enabled { "bật" } else { "tắt" }, a.rule_ids.join(", ")),
+            &format!("{} every {interval_days} days: {}", if a.enabled { "enabled" } else { "disabled" }, a.rule_ids.join(", ")),
         );
         Ok(a)
     })

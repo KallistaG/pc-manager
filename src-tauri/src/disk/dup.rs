@@ -82,7 +82,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let big = vec![7u8; 10_000];
         let mut same_head = big.clone();
-        same_head[9_999] = 8; // giống 4KB đầu, khác ở cuối
+        same_head[9_999] = 8; // same first 4 KB, different at the end
         let w = |n: &str, d: &[u8]| {
             let p = dir.join(n);
             std::fs::write(&p, d).unwrap();
@@ -92,7 +92,7 @@ mod tests {
             w("a.bin", &big),
             w("b.bin", &big),
             w("c.bin", &same_head),
-            w("d.bin", &[1u8; 5000]), // size duy nhất
+            w("d.bin", &[1u8; 5000]), // unique size
             w("e.txt", b"xy"),        // < min_size
             w("f.txt", b"xy"),
         ];

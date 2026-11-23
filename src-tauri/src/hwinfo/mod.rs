@@ -168,7 +168,7 @@ fn windows_info() -> WindowsInfo {
             .and_then(|k| k.get_u32("HiberbootEnabled"))
             .ok()
             .map(|v| v != 0),
-        architecture: if cfg!(target_arch = "x86_64") { "x64" } else { "khác" },
+        architecture: if cfg!(target_arch = "x86_64") { "x64" } else { "other" },
     }
 }
 
@@ -239,7 +239,7 @@ fn bus_name(code: i32) -> Option<&'static str> {
         11 => "SATA",
         12 => "SD",
         13 => "MMC",
-        14 | 15 => "Ổ ảo",
+        14 | 15 => "Virtual drive",
         16 => "Storage Spaces",
         17 => "NVMe",
         18 => "SCM",
@@ -257,7 +257,7 @@ fn disks() -> Vec<DiskInfo> {
                 (Some(v), Some(p)) if !p.to_ascii_lowercase().contains(&v.to_ascii_lowercase()) => format!("{v} {p}"),
                 (_, Some(p)) => p.to_owned(),
                 (Some(v), None) => v.to_owned(),
-                (None, None) => format!("Ổ đĩa {}", d.index),
+                (None, None) => format!("Disk {}", d.index),
             };
             let bus = d.bus_type.and_then(bus_name);
             DiskInfo {
@@ -314,7 +314,7 @@ mod tests {
         assert_eq!(parse_utc("2026-11-11T01:35:29.5123456Z"), Some(1_794_360_929_000));
         assert_eq!(parse_utc("2024-02-29T12:00:00Z"), Some(1_709_208_000_000));
         assert_eq!(parse_utc("2026-13-01T00:00:00Z"), None);
-        assert_eq!(parse_utc("rác"), None);
+        assert_eq!(parse_utc("garbage"), None);
     }
 
     #[test]

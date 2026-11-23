@@ -124,7 +124,7 @@ impl MemoryManager {
         let privileged = match token::enable_privilege(token::SE_PROFILE_SINGLE_PROCESS) {
             Ok(v) => v,
             Err(e) => {
-                eprintln!("[memory] không bật được privilege: {e}");
+                eprintln!("[memory] Could not enable privilege: {e}");
                 false
             }
         };
@@ -151,13 +151,13 @@ impl MemoryManager {
     /// Ghi log vào SQLite.
     pub fn boost(&self, store: &Store, trigger: BoostTrigger, mode: BoostMode) -> AppResult<BoostReport> {
         if !self.privileged {
-            let err = AppError::Forbidden("cần chạy PC Manager với quyền Administrator để Boost".into());
+            let err = AppError::Forbidden("Run PC Manager as administrator to use Boost".into());
             store.log_action_best_effort("memory.boost", "system", false, &err.to_string());
             return Err(err);
         }
         let mut last = match self.boost_lock.try_lock() {
             Ok(g) => g,
-            Err(TryLockError::WouldBlock) => return Err(AppError::Busy("Boost đang chạy".into())),
+            Err(TryLockError::WouldBlock) => return Err(AppError::Busy("Boost is already running".into())),
             Err(TryLockError::Poisoned(p)) => p.into_inner(),
         };
 
@@ -203,7 +203,7 @@ impl MemoryManager {
         if ok {
             Ok(report)
         } else {
-            Err(AppError::Other(format!("Boost thất bại: {}", report.warnings.join("; "))))
+            Err(AppError::Other(format!("Boost failed: {}", report.warnings.join("; "))))
         }
     }
 
@@ -239,7 +239,7 @@ impl MemoryManager {
             Ok(SmartBoostOutcome::Boosted { report }) => Some(*report),
             Ok(SmartBoostOutcome::Skipped { .. }) => None,
             Err(e) => {
-                eprintln!("[memory] auto smart boost lỗi: {e}");
+                eprintln!("[memory] Automatic Smart Boost failed: {e}");
                 None
             }
         }
@@ -290,14 +290,14 @@ mod tests {
 
     /// Smart Boost thật (ngưỡng tối đa để chắc chắn chạy) — cần quyền Administrator.
     #[test]
-    #[ignore = "cần quyền Administrator, thay đổi trạng thái RAM của máy"]
+    #[ignore = "requires administrator privileges and changes the PC’s memory state"]
     fn real_smart_boost_reports_light_mode() {
         let mm = MemoryManager::init();
         let store = Store::in_memory().unwrap();
         let t = SmartThreshold::new(SmartThreshold::MAX).unwrap();
         match mm.smart_boost(&store, t, BoostTrigger::Manual).unwrap() {
             SmartBoostOutcome::Boosted { report } => assert_eq!(report.mode, BoostMode::Light),
-            SmartBoostOutcome::Skipped { available_pct, .. } => println!("bỏ qua: còn {available_pct:.0}% RAM"),
+            SmartBoostOutcome::Skipped { available_pct, .. } => println!("Skipped: {available_pct:.0}% RAM available"),
         }
     }
 
@@ -314,9 +314,9 @@ mod tests {
 
     /// Boost thật — chạy trong terminal Administrator: `cargo test -- --ignored`.
     #[test]
-    #[ignore = "cần quyền Administrator, thay đổi trạng thái RAM của máy"]
+    #[ignore = "requires administrator privileges and changes the PC’s memory state"]
     fn real_boost_when_elevated() {
-        assert!(crate::sys::token::is_elevated().unwrap(), "hãy chạy trong terminal Administrator");
+        assert!(crate::sys::token::is_elevated().unwrap(), "run this test from an administrator terminal");
         let mm = MemoryManager::init();
         assert!(mm.privileged());
         let s = mm.snapshot().unwrap();
@@ -327,7 +327,7 @@ mod tests {
             let r = mm.boost(&store, BoostTrigger::Manual, mode).unwrap();
             assert!(r.flushed_modified && r.purged_standby, "{:?}", r.warnings);
             println!(
-                "{mode:?}: available +{} MB | standby xoá {} MB | modified ghi {} MB | free +{} MB | {} ms",
+                "{mode:?}: available +{} MB | standby cleared {} MB | modified flushed {} MB | free +{} MB | {} ms",
                 r.gain.available_gain / (1024 * 1024),
                 mb(r.gain.standby_cleared),
                 mb(r.gain.modified_flushed),

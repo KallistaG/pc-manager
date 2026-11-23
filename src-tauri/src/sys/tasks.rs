@@ -65,7 +65,7 @@ fn list(_com: &ComGuard, logon_only: bool) -> windows::core::Result<Vec<LogonTas
 
 fn walk(folder: &ITaskFolder, out: &mut Vec<LogonTask>, depth: u32, logon_only: bool) {
     if depth > 16 {
-        return; // phòng vòng lặp bất thường
+        return; // prevent an unexpected loop
     }
     // SAFETY: các lời gọi COM trên interface hợp lệ; lỗi được bỏ qua từng mục.
     unsafe {

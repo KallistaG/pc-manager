@@ -15,9 +15,9 @@ import { formatBytes } from "../lib/format";
 type Phase = "idle" | "scanning" | "preview" | "cleaning" | "report";
 
 const RISK: Record<Risk, { label: string; cls: string; hint: string }> = {
-  low: { label: "An toàn", cls: "bg-green-500/15 text-green-700 dark:text-green-300", hint: "Windows/ứng dụng tự tạo lại khi cần" },
-  medium: { label: "Cân nhắc", cls: "bg-amber-500/15 text-amber-700 dark:text-amber-300", hint: "Có thể cần khi điều tra lỗi" },
-  high: { label: "Không khôi phục được", cls: "bg-red-500/15 text-red-700 dark:text-red-300", hint: "Dữ liệu bạn đã xoá" },
+  low: { label: "Safe", cls: "bg-green-500/15 text-green-700 dark:text-green-300", hint: "Windows or apps will recreate these when needed" },
+  medium: { label: "Use caution", cls: "bg-amber-500/15 text-amber-700 dark:text-amber-300", hint: "May be useful when troubleshooting" },
+  high: { label: "Irreversible", cls: "bg-red-500/15 text-red-700 dark:text-red-300", hint: "Data you deleted" },
 };
 
 const isReady = (r: RuleScan) => r.status.kind === "ready";
@@ -25,13 +25,13 @@ const isReady = (r: RuleScan) => r.status.kind === "ready";
 function statusNote(r: RuleScan): string | null {
   switch (r.status.kind) {
     case "empty":
-      return r.skippedYoung > 0 ? `Chỉ có file mới (${r.skippedYoung}) — được giữ lại` : "Không có gì để dọn";
+      return r.skippedYoung > 0 ? `Only recently created files (${r.skippedYoung}) — kept` : "Nothing to clean";
     case "needsAdmin":
-      return "Cần chạy PC Manager với quyền Administrator";
+      return "Run PC Manager as administrator";
     case "blocked":
       return r.status.reason;
     case "error":
-      return `Lỗi: ${r.status.message}`;
+      return `Error: ${r.status.message}`;
     default:
       return null;
   }
@@ -46,7 +46,7 @@ function ProgressView({ p, onCancel, cancelling }: { p: CleanerProgress | null; 
       : p.totalRules > 0
         ? Math.round((p.doneRules / p.totalRules) * 100)
         : 0;
-  const verb = p?.phase === "clean" ? "Đang dọn" : "Đang quét";
+  const verb = p?.phase === "clean" ? "Cleaning" : "Scanning";
   return (
     <Card className="flex flex-col gap-4">
       <div className="flex items-baseline justify-between gap-4">
@@ -54,13 +54,13 @@ function ProgressView({ p, onCancel, cancelling }: { p: CleanerProgress | null; 
           <div className="text-lg font-semibold">
             {verb}… {pct}%
           </div>
-          <div className="truncate text-sm opacity-70">{p?.current ?? "Chuẩn bị…"}</div>
+          <div className="truncate text-sm opacity-70">{p?.current ?? "Preparing…"}</div>
         </div>
         <Button variant="secondary" onClick={onCancel} loading={cancelling}>
-          {cancelling ? "Đang huỷ…" : "Huỷ"}
+          {cancelling ? "Cancelling…" : "Cancel"}
         </Button>
       </div>
-      <ProgressBar pct={pct} label={p ? `${p.files.toLocaleString("vi-VN")} file · ${formatBytes(p.bytes)}` : "Chuẩn bị…"} />
+      <ProgressBar pct={pct} label={p ? `${p.files.toLocaleString("en-US")} files · ${formatBytes(p.bytes)}` : "Preparing…"} />
     </Card>
   );
 }
@@ -86,12 +86,12 @@ function RuleRow({ r, checked, onToggle }: { r: RuleScan; checked: boolean; onTo
         <p className="mt-0.5 text-xs leading-relaxed opacity-65">{r.description}</p>
         {note && <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">{note}</p>}
         {ready && r.skippedYoung > 0 && (
-          <p className="mt-1 text-xs opacity-60">Giữ lại {r.skippedYoung.toLocaleString("vi-VN")} file mới tạo gần đây</p>
+          <p className="mt-1 text-xs opacity-60">Kept {r.skippedYoung.toLocaleString("en-US")} recently created files</p>
         )}
       </div>
       <div className="shrink-0 text-right">
         <div className="font-semibold tabular-nums">{ready ? formatBytes(r.bytes) : "—"}</div>
-        {ready && <div className="text-xs tabular-nums opacity-60">{r.files.toLocaleString("vi-VN")} mục</div>}
+        {ready && <div className="text-xs tabular-nums opacity-60">{r.files.toLocaleString("en-US")} items</div>}
       </div>
     </label>
   );
@@ -101,38 +101,38 @@ function ReportView({ rep, onRescan, onRealClean }: { rep: CleanReport; onRescan
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        {rep.dryRun && <div className="mb-3"><Notice tone="warn">Chế độ chạy thử — chưa có file nào bị xoá.</Notice></div>}
+        {rep.dryRun && <div className="mb-3"><Notice tone="warn">Dry run — no files have been deleted.</Notice></div>}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <div className="text-sm opacity-70">{rep.dryRun ? "Sẽ giải phóng" : "Đã giải phóng"}</div>
+            <div className="text-sm opacity-70">{rep.dryRun ? "Will free" : "Freed"}</div>
             <div className="text-4xl font-semibold text-green-600 tabular-nums dark:text-green-400">{formatBytes(rep.freedBytes)}</div>
             <div className="mt-1 text-sm opacity-70">
-              {rep.deletedFiles.toLocaleString("vi-VN")} mục · {(rep.durationMs / 1000).toFixed(1)} giây
-              {rep.cancelled && " · đã huỷ giữa chừng"}
+              {rep.deletedFiles.toLocaleString("en-US")} items · {(rep.durationMs / 1000).toFixed(1)} seconds
+              {rep.cancelled && " · cancelled early"}
             </div>
           </div>
           <div className="flex gap-2">
             {onRealClean && (
               <Button variant="primary" onClick={onRealClean}>
-                Dọn thật
+                Clean now
               </Button>
             )}
             <Button variant="secondary" onClick={onRescan}>
-              Quét lại
+              Scan again
             </Button>
           </div>
         </div>
         {(rep.skippedLocked > 0 || rep.skippedChanged > 0 || rep.errors > 0) && (
           <p className="mt-3 text-sm opacity-75">
-            Bỏ qua: {rep.skippedLocked > 0 && `${rep.skippedLocked} file đang được dùng`}
+            Skipped: {rep.skippedLocked > 0 && `${rep.skippedLocked} files in use`}
             {rep.skippedLocked > 0 && rep.skippedChanged > 0 && " · "}
-            {rep.skippedChanged > 0 && `${rep.skippedChanged} file đã thay đổi từ lúc quét`}
-            {rep.errors > 0 && ` · ${rep.errors} lỗi`}. Đây là hành vi an toàn: PC Manager không ép xoá file đang dùng.
+            {rep.skippedChanged > 0 && `${rep.skippedChanged} files changed since the scan`}
+            {rep.errors > 0 && ` · ${rep.errors} errors`}. This is expected: PC Manager never forces deletion of files in use.
           </p>
         )}
       </Card>
       <Card className="overflow-hidden !p-0">
-        <div className="px-4 pt-3 pb-2 text-sm font-medium opacity-70">Chi tiết</div>
+        <div className="px-4 pt-3 pb-2 text-sm font-medium opacity-70">Details</div>
         <table className="w-full text-sm">
           <tbody>
             {rep.rules.map((r) => (
@@ -144,8 +144,8 @@ function ReportView({ rep, onRescan, onRealClean }: { rep: CleanReport; onRescan
                 </td>
                 <td className="px-4 py-2 text-right tabular-nums">{formatBytes(r.freedBytes)}</td>
                 <td className="px-4 py-2 text-right text-xs tabular-nums opacity-70">
-                  {r.deletedFiles.toLocaleString("vi-VN")} mục
-                  {r.skippedLocked + r.skippedChanged > 0 && ` · bỏ qua ${(r.skippedLocked + r.skippedChanged).toLocaleString("vi-VN")}`}
+                  {r.deletedFiles.toLocaleString("en-US")} items
+                  {r.skippedLocked + r.skippedChanged > 0 && ` · skipped ${(r.skippedLocked + r.skippedChanged).toLocaleString("en-US")}`}
                 </td>
               </tr>
             ))}
@@ -186,7 +186,7 @@ export default function Cleaner() {
     setScan(r);
     setSelected(new Set(r.rules.filter((x) => isReady(x) && x.defaultSelected).map((x) => x.id)));
     setPhase(r.cancelled ? "idle" : "preview");
-    if (r.cancelled) setError("Đã huỷ quét.");
+    if (r.cancelled) setError("Scan cancelled.");
   };
 
   // Cửa sổ bị đóng (xuống tray) lúc đang quét/dọn rồi mở lại: backend vẫn chạy => hiện lại tiến độ
@@ -279,17 +279,17 @@ export default function Cleaner() {
   const askClean = () => {
     if (dryRun) return void runClean(true);
     const warns = [
-      chosen.some((r) => r.risk === "high") && "Thùng rác sẽ bị làm rỗng — không khôi phục được.",
-      chosen.some((r) => r.usesService) && "Dịch vụ Windows Update sẽ tạm dừng trong lúc dọn rồi tự chạy lại.",
+      chosen.some((r) => r.risk === "high") && "The Recycle Bin will be emptied — this cannot be undone.",
+      chosen.some((r) => r.usesService) && "The Windows Update service will be paused during cleanup and restarted afterward.",
     ].filter(Boolean) as string[];
     setConfirm({
-      title: `Dọn ${formatBytes(chosenBytes)}?`,
+      title: `Clean up ${formatBytes(chosenBytes)}?`,
       body: (
         <div className="space-y-2">
           <p>
-            {chosen.length} mục: {chosen.map((r) => r.name).join(", ")}.
+            {chosen.length} item(s): {chosen.map((r) => r.name).join(", ")}.
           </p>
-          <p className="text-xs opacity-70">File đang được dùng, file mới tạo và file thay đổi từ lúc quét sẽ được bỏ qua.</p>
+          <p className="text-xs opacity-70">Files in use, recently created files, and files changed since the scan will be skipped.</p>
           {warns.map((w) => (
             <p key={w} className="text-amber-700 dark:text-amber-300">
               {w}
@@ -297,7 +297,7 @@ export default function Cleaner() {
           ))}
         </div>
       ),
-      confirmLabel: "Dọn",
+      confirmLabel: "Clean",
       danger: chosen.some((r) => r.risk === "high"),
       onConfirm: () => runClean(false),
     });
@@ -305,12 +305,12 @@ export default function Cleaner() {
 
   return (
     <PageShell
-      title="Dọn rác"
-      subtitle="Quét → xem trước → bạn chọn → dọn. Chỉ xoá những gì có trong quy tắc dọn rác, không đụng tới dữ liệu cá nhân."
+      title="Junk Cleaner"
+      subtitle="Scan → review → choose → clean. Only items covered by the junk-cleaning rules are removed; personal data is left untouched."
       actions={
         (phase === "idle" || phase === "preview") && (
           <Button variant={phase === "idle" ? "primary" : "secondary"} onClick={startScan}>
-            {phase === "idle" ? "Quét ngay" : "Quét lại"}
+            {phase === "idle" ? "Scan now" : "Scan again"}
           </Button>
         )
       }
@@ -321,18 +321,18 @@ export default function Cleaner() {
         </div>
       )}
       <div className="mb-4 empty:hidden">
-        <AdminNotice>Windows\Temp, crash dump hệ thống, Windows Update cache… chỉ dọn được với quyền Administrator.</AdminNotice>
+        <AdminNotice>Windows\Temp, system crash dumps, and the Windows Update cache… can only be cleaned with administrator privileges.</AdminNotice>
       </div>
 
       {phase === "idle" && (
         <Card className="flex flex-col items-center gap-3 py-12 text-center">
           <IconSparkle className="h-10 w-10 text-accent" />
           <p className="max-w-lg text-sm opacity-70">
-            Quét file tạm, cache trình duyệt, bản ghi lỗi, bản cập nhật Windows đã cài và Thùng rác. Không có gì bị xoá cho tới khi bạn
-            xem trước và xác nhận.
+            Scan temporary files, browser caches, error reports, installed Windows updates, and the Recycle Bin. Nothing is deleted until you
+            review the results and confirm.
           </p>
           <Button variant="primary" onClick={startScan}>
-            Quét ngay
+            Scan now
           </Button>
         </Card>
       )}
@@ -345,8 +345,8 @@ export default function Cleaner() {
 
       {phase === "preview" && scan && (
         <>
-          {/* auto-rows-max: hàng cao đúng bằng nội dung, không bị ép dẹt khi
-              khung thấp (thẻ có overflow-hidden nên min-height = 0). */}
+          {/* auto-rows-max: rows match their content instead of shrinking when
+              the container is short (the card uses overflow-hidden, so min-height is 0). */}
           <div className="grid min-h-0 flex-1 auto-rows-max content-start items-start gap-4 overflow-auto pb-4 xl:grid-cols-2">
             {groups.map(([group, rules]) => {
               const ready = rules.filter(isReady);
@@ -376,20 +376,20 @@ export default function Cleaner() {
             })}
           </div>
 
-          {/* Thanh hành động luôn hiện ở đáy */}
+          {/* Keep the action bar pinned to the bottom. */}
           <div className="flex flex-wrap items-center gap-4 rounded-lg bg-white px-4 py-3 shadow-sm dark:bg-white/5">
             <div className="min-w-0 flex-1">
               <div className="text-lg font-semibold tabular-nums">{formatBytes(chosenBytes)}</div>
               <div className="text-xs opacity-60">
-                {chosen.length} mục đã chọn · quét trong {(scan.durationMs / 1000).toFixed(1)} giây
+                {chosen.length} items selected · scan took {(scan.durationMs / 1000).toFixed(1)} seconds
               </div>
             </div>
-            <label className="flex cursor-pointer items-center gap-2 text-sm" title="Chạy toàn bộ kiểm tra nhưng không xoá gì">
+            <label className="flex cursor-pointer items-center gap-2 text-sm" title="Run all checks without deleting anything">
               <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} className="accent-[var(--color-accent)]" />
-              Chạy thử (không xoá)
+              Dry run (no deletion)
             </label>
             <Button variant="primary" disabled={chosen.length === 0} onClick={askClean}>
-              {dryRun ? "Chạy thử" : `Dọn ${formatBytes(chosenBytes)}`}
+              {dryRun ? "Dry run" : `Clean ${formatBytes(chosenBytes)}`}
             </Button>
           </div>
         </>

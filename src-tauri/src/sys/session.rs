@@ -175,7 +175,7 @@ mod tests {
     #[test]
     fn same_user_is_not_reported() {
         if crate::user::is_other_user() {
-            println!("bỏ qua: test đang chạy bằng tài khoản admin khác user đang đăng nhập");
+            println!("Skipped: the test is running under a different administrator account than the signed-in user");
             return;
         }
         // Test chạy dưới chính user đang đăng nhập => không có "user khác".
@@ -186,22 +186,22 @@ mod tests {
     #[test]
     fn session_user_resolves_to_own_sid() {
         if crate::user::is_other_user() {
-            println!("bỏ qua: test đang chạy bằng tài khoản admin khác user đang đăng nhập");
+            println!("Skipped: the test is running under a different administrator account than the signed-in user");
             return;
         }
         // Bảo đảm `same_user_is_not_reported` đạt vì so sánh đúng, không phải vì tra cứu lỗi.
-        let name = session_info(WTSUserName).expect("đọc được tên user của phiên");
+        let name = session_info(WTSUserName).expect("could not read the session user name");
         let domain = session_info(WTSDomainName).unwrap_or_default();
         assert_eq!(account_sid(&domain, &name), process_user_sid());
     }
 
     #[test]
     fn reads_own_sid_and_profile() {
-        let sid = process_user_sid().expect("đọc được SID của tiến trình");
+        let sid = process_user_sid().expect("could not read the process SID");
         assert!(sid.starts_with("S-1-"));
-        let local = shell_folder_of(&sid, "Local AppData", r"AppData\Local").expect("tìm được AppData\\Local");
+        let local = shell_folder_of(&sid, "Local AppData", r"AppData\Local").expect("could not find AppData\\Local");
         assert!(local.is_dir(), "{}", local.display());
-        let roaming = shell_folder_of(&sid, "AppData", r"AppData\Roaming").expect("tìm được AppData\\Roaming");
+        let roaming = shell_folder_of(&sid, "AppData", r"AppData\Roaming").expect("could not find AppData\\Roaming");
         assert!(roaming.is_dir(), "{}", roaming.display());
     }
 }

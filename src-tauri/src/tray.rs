@@ -23,14 +23,14 @@ fn set_tooltip(app: &AppHandle, text: &str) {
 /// Boost từ menu tray; kết quả hiện ở tooltip (UI nhận event nếu đang mở).
 fn quick_boost(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
-        set_tooltip(&app, "PC Manager — đang Boost…");
+        set_tooltip(&app, "PC Manager — Boosting…");
         let text = match run_boost(app.clone(), BoostTrigger::Tray, BoostMode::Light).await {
             Ok(r) => format!(
-                "PC Manager — RAM khả dụng +{} MB, xoá {} MB cache",
+                "PC Manager — Available RAM +{} MB, cleared {} MB of cache",
                 r.gain.available_gain / MB,
                 r.gain.standby_cleared.unwrap_or(0) / MB
             ),
-            Err(e) => format!("PC Manager — Boost lỗi: {e}"),
+            Err(e) => format!("PC Manager — Boost failed: {e}"),
         };
         set_tooltip(&app, &text);
     });
@@ -41,7 +41,7 @@ pub fn set_ui_memory_low(app: &AppHandle, low: bool) {
     if let Some(w) = app.get_webview_window(MAIN_WINDOW) {
         let _ = w.with_webview(move |pw| {
             if let Err(e) = crate::sys::webview::set_memory_low(&pw.controller(), low) {
-                eprintln!("không đặt được mức RAM WebView2: {e}");
+                eprintln!("Could not set WebView2 memory level: {e}");
             }
         });
     }
@@ -96,12 +96,12 @@ fn webview_dir_candidates(app: &AppHandle) -> Vec<Option<PathBuf>> {
     let mut out: Vec<Option<PathBuf>> = Vec::new();
     if let Some(local) = crate::sys::session::other_interactive_user_local_appdata() {
         let dir = local.join(id).join("EBWebView");
-        diag(&format!("chạy khác user đang đăng nhập => dùng thư mục của user đó: {}", dir.display()));
+        diag(&format!("Running under a different account than the signed-in user; using that user’s folder: {}", dir.display()));
         out.push(Some(dir));
     }
     match paths.local_data_dir().ok().map(|d| d.join(id).join("EBWebView")) {
         Some(d) if dir_is_writable(&d) => out.push(None),
-        Some(d) => diag(&format!("thư mục mặc định không ghi được: {}", d.display())),
+        Some(d) => diag(&format!("Default folder is not writable: {}", d.display())),
         None => out.push(None),
     }
     let mut extra: Vec<PathBuf> = Vec::new();
@@ -113,7 +113,7 @@ fn webview_dir_candidates(app: &AppHandle) -> Vec<Option<PathBuf>> {
         if dir_is_writable(&d) {
             out.push(Some(d));
         } else {
-            diag(&format!("thư mục dự phòng không ghi được: {}", d.display()));
+            diag(&format!("Fallback folder is not writable: {}", d.display()));
         }
     }
     out
@@ -131,24 +131,24 @@ pub fn show_main_window(app: &AppHandle) {
         return;
     }
     let Some(cfg) = app.config().app.windows.iter().find(|w| w.label == MAIN_WINDOW).cloned() else {
-        eprintln!("không có cấu hình cửa sổ '{MAIN_WINDOW}'");
+        eprintln!("No configuration found for window '{MAIN_WINDOW}'");
         return;
     };
     // Tham số WebView2 (tắt GPU…) lấy từ `additionalBrowserArgs` trong tauri.conf.json.
     // Máy công ty / tài khoản admin khác có thể chặn thư mục dữ liệu mặc định của WebView2
     // => thử lần lượt các thư mục ghi được; tạo cửa sổ lỗi thì thử thư mục kế tiếp.
     diag(&format!(
-        "mở cửa sổ: user={}\\{} profile={}",
+        "Opening window: user={}\\{} profile={}",
         std::env::var("USERDOMAIN").unwrap_or_default(),
         std::env::var("USERNAME").unwrap_or_default(),
         std::env::var("USERPROFILE").unwrap_or_default()
     ));
     for dir in webview_dir_candidates(app) {
-        let label = dir.as_deref().map_or_else(|| "(mặc định)".to_owned(), |d| d.display().to_string());
+        let label = dir.as_deref().map_or_else(|| "(default)".to_owned(), |d| d.display().to_string());
         let mut builder = match tauri::WebviewWindowBuilder::from_config(app, &cfg) {
             Ok(b) => b,
             Err(e) => {
-                diag(&format!("không tạo được cửa sổ chính: {e}"));
+                diag(&format!("Could not create the main window: {e}"));
                 return;
             }
         };
@@ -157,26 +157,26 @@ pub fn show_main_window(app: &AppHandle) {
         }
         match builder.build() {
             Ok(w) => {
-                diag(&format!("WebView2 chạy với: {label}"));
+                diag(&format!("WebView2 running with: {label}"));
                 let _ = w.set_focus();
                 return;
             }
             Err(e) => {
-                diag(&format!("tạo WebView2 lỗi với {label}: {e}"));
+                diag(&format!("Failed to create WebView2 with {label}: {e}"));
                 if let Some(w) = app.get_webview_window(MAIN_WINDOW) {
                     let _ = w.destroy();
                 }
             }
         }
     }
-    diag("đã thử hết cách mà vẫn không tạo được cửa sổ chính");
+    diag("All attempts to create the main window failed");
 }
 
 pub fn setup(app: &AppHandle) -> tauri::Result<()> {
-    let boost = MenuItem::with_id(app, "boost", "Boost nhanh (nhẹ)", true, None::<&str>)?;
-    let open = MenuItem::with_id(app, "open", "Mở PC Manager", true, None::<&str>)?;
+    let boost = MenuItem::with_id(app, "boost", "Quick Boost (light)", true, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", "Open PC Manager", true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(app)?;
-    let quit = MenuItem::with_id(app, "quit", "Thoát", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&boost, &open, &sep, &quit])?;
 
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)

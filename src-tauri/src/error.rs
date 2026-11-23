@@ -5,29 +5,29 @@ use serde::{ser::SerializeStruct, Serialize, Serializer};
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
     /// Lỗi Win32/NT, giữ lại HRESULT để debug.
-    #[error("Windows API lỗi: {0}")]
+    #[error("Windows API error: {0}")]
     Win32(#[from] windows::core::Error),
 
-    #[error("Tham số không hợp lệ: {0}")]
+    #[error("Invalid argument: {0}")]
     InvalidInput(String),
 
-    #[error("Không được phép: {0}")]
+    #[error("Not allowed: {0}")]
     Forbidden(String),
 
-    #[error("Không tìm thấy: {0}")]
+    #[error("Not found: {0}")]
     NotFound(String),
 
-    #[error("Đã huỷ")]
+    #[error("Cancelled")]
     Cancelled,
 
-    #[error("Đang bận: {0}")]
+    #[error("Busy: {0}")]
     Busy(String),
 
-    #[error("Lỗi cơ sở dữ liệu: {0}")]
+    #[error("Database error: {0}")]
     Db(#[from] rusqlite::Error),
 
     /// Lỗi nội bộ (tác vụ panic). Chi tiết đã nằm trong crash.log.
-    #[error("Lỗi nội bộ khi {0}. Chi tiết đã được ghi vào crash.log — hãy thử lại.")]
+    #[error("Internal error while {0}. Details were written to crash.log — please try again.")]
     Internal(String),
 
     #[error("{0}")]
@@ -36,7 +36,7 @@ pub enum AppError {
 
 /// Tác vụ nền (spawn_blocking) kết thúc bất thường — thường là panic, đã được panic hook ghi lại.
 pub fn task_failed(what: &str, e: impl std::fmt::Display) -> AppError {
-    eprintln!("[{what}] tác vụ lỗi: {e}");
+    eprintln!("[{what}] task failed: {e}");
     AppError::Internal(what.to_owned())
 }
 
@@ -88,7 +88,7 @@ mod tests {
         let e = AppError::Forbidden("csrss.exe".into());
         let v = serde_json::to_value(&e).unwrap();
         assert_eq!(v["code"], "forbidden");
-        assert_eq!(v["message"], "Không được phép: csrss.exe");
+        assert_eq!(v["message"], "Not allowed: csrss.exe");
     }
 
     /// Đúng đường đi của lỗi thật (trang Ứng dụng): panic trong pool rayon, chạy bên trong
@@ -100,16 +100,16 @@ mod tests {
             tauri::async_runtime::spawn_blocking(|| -> AppResult<u32> {
                 crate::bg::pool()?.install(|| {
                     use rayon::prelude::*;
-                    (0..64u32).into_par_iter().map(|i| if i == 37 { panic!("lỗi giả lập ở phần tử {i}") } else { i }).sum::<u32>();
+                    (0..64u32).into_par_iter().map(|i| if i == 37 { panic!("simulated failure at item {i}") } else { i }).sum::<u32>();
                     Ok(1)
                 })
             })
             .await
-            .map_err(|e| task_failed("đọc danh sách ứng dụng", e))?
+            .map_err(|e| task_failed("loading the app list", e))?
         });
         let err = result.unwrap_err();
         assert_eq!(err.code(), "internal");
-        assert!(err.to_string().contains("đọc danh sách ứng dụng") && err.to_string().contains("crash.log"));
+        assert!(err.to_string().contains("loading the app list") && err.to_string().contains("crash.log"));
 
         // Pool nền và các tác vụ sau vẫn chạy bình thường.
         let ok: AppResult<u32> = tauri::async_runtime::block_on(async {

@@ -111,7 +111,7 @@ mod tests {
                     assert!(name.contains("Microsoft"));
                     break;
                 }
-                other => panic!("kết quả bất ngờ: {other:?}"),
+                other => panic!("Unexpected result: {other:?}"),
             }
         }
     }

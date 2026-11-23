@@ -86,29 +86,29 @@ struct RuleFile {
 pub fn parse(src: &str) -> AppResult<Vec<Rule>> {
     let file: RuleFile = toml::from_str(src).map_err(|e| AppError::Other(format!("cleaner.toml: {e}")))?;
     if file.version != 1 {
-        return Err(AppError::Other(format!("cleaner.toml: version {} không hỗ trợ", file.version)));
+        return Err(AppError::Other(format!("cleaner.toml: unsupported version {}", file.version)));
     }
     let mut seen = std::collections::HashSet::new();
     for r in &file.rules {
         let bad = |m: &str| Err(AppError::Other(format!("cleaner.toml rule '{}': {m}", r.id)));
         if r.id.is_empty() || !r.id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
-            return bad("id chỉ gồm chữ, số và '-'");
+            return bad("id may contain only letters, digits, and '-'");
         }
         if !seen.insert(r.id.clone()) {
-            return bad("id bị trùng");
+            return bad("duplicate id");
         }
         match r.kind {
             RuleKind::Files => {
                 if r.paths.is_empty() {
-                    return bad("rule files phải có ít nhất một path");
+                    return bad("file rules must contain at least one path");
                 }
                 if r.include.is_empty() {
-                    return bad("include rỗng");
+                    return bad("include list must not be empty");
                 }
             }
             RuleKind::RecycleBin => {
                 if !r.paths.is_empty() {
-                    return bad("rule recycle_bin không được có path");
+                    return bad("recycle_bin rules must not contain paths");
                 }
             }
         }
@@ -116,7 +116,7 @@ pub fn parse(src: &str) -> AppResult<Vec<Rule>> {
             // Gốc phải bắt đầu bằng %BIẾN% hệ thống hoặc ổ đĩa — không đường dẫn tương đối.
             let rooted = p.starts_with('%') || p.chars().nth(1) == Some(':');
             if !rooted || p.split(['\\', '/']).any(|seg| seg == ".." || seg == ".") {
-                return bad("path phải tuyệt đối và không chứa '.' hoặc '..'");
+                return bad("path must be absolute and must not contain '.' or '..'");
             }
         }
     }
@@ -177,7 +177,7 @@ risk = "low"
 paths = ["%TEMP%"]
 follow_symlinks = true
 "#;
-        assert!(parse(r).is_err(), "trường lạ phải bị từ chối");
+        assert!(parse(r).is_err(), "unknown fields must be rejected");
         let dup = r#"version = 1
 [[rule]]
 id = "x"

@@ -42,7 +42,7 @@ export default function UsageChart({ samples, minHeight = 140 }: Props) {
             <path d={line} fill="none" className="stroke-accent" strokeWidth={2} vectorEffect="non-scaling-stroke" />
           )}
         </svg>
-        {/* Nhãn trục Y — HTML để chữ không bị kéo dãn theo SVG. */}
+        {/* Y-axis labels use HTML so the text is not stretched with the SVG. */}
         {[75, 50, 25].map((g) => (
           <span key={g} className="absolute right-1 -translate-y-1/2 text-[10px] opacity-40" style={{ top: `${100 - g}%` }}>
             {g}%
@@ -50,8 +50,8 @@ export default function UsageChart({ samples, minHeight = 140 }: Props) {
         ))}
       </div>
       <div className="mt-1 flex justify-between text-xs opacity-50">
-        <span>60 giây trước</span>
-        <span>{last ? `${last.usedPct.toFixed(0)}% đang dùng` : "đang đo…"}</span>
+        <span>60 seconds ago</span>
+        <span>{last ? `${last.usedPct.toFixed(0)}% in use` : "measuring…"}</span>
       </div>
     </div>
   );

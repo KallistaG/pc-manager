@@ -19,8 +19,8 @@ type CardResult =
 const SOURCE_LABEL: Record<BoostReport["trigger"], string> = {
   manual: "",
   smart: "",
-  tray: "từ khay hệ thống",
-  auto: "tự động",
+  tray: "from system tray",
+  auto: "automatic",
 };
 
 /** Báo cáo của mỗi lần Boost thuộc về thẻ nào (kể cả Boost từ tray / tự động). */
@@ -36,11 +36,11 @@ function ReportView({ report }: { report: BoostReport }) {
     <div className="rounded-md bg-green-500/10 px-3 py-2 text-sm">
       <div className="flex items-baseline gap-2">
         <span className="text-lg font-semibold text-green-700 tabular-nums dark:text-green-300">+{formatBytes(g.availableGain)}</span>
-        <span className="text-xs opacity-70">RAM khả dụng{source && ` · ${source}`}</span>
+        <span className="text-xs opacity-70">Available RAM{source && ` · ${source}`}</span>
       </div>
       <ul className="mt-1 space-y-0.5 text-xs opacity-75">
-        {g.modifiedFlushed != null && <li>Ghi {formatBytes(g.modifiedFlushed)} dữ liệu chờ ra đĩa</li>}
-        {g.standbyCleared != null && <li>Xoá {formatBytes(g.standbyCleared)} cache standby</li>}
+        {g.modifiedFlushed != null && <li>Wrote {formatBytes(g.modifiedFlushed)} of pending data to disk</li>}
+        {g.standbyCleared != null && <li>Cleared {formatBytes(g.standbyCleared)} of standby cache</li>}
         <li>Xong trong {report.durationMs} ms</li>
       </ul>
       {report.warnings.length > 0 && <div className="mt-1 text-xs text-amber-700 dark:text-amber-300">{report.warnings.join(" · ")}</div>}
@@ -131,7 +131,7 @@ export default function BoostPanel() {
         if (r.kind === "skipped") {
           setResult("smart", {
             kind: "info",
-            text: `Chưa cần Boost: RAM khả dụng còn ${r.availablePct.toFixed(0)}%, cao hơn ngưỡng ${r.thresholdPct}%.`,
+            text: `Boost not needed: ${r.availablePct.toFixed(0)}% of RAM is available, above the ${r.thresholdPct}% threshold.`,
           });
         }
       } else {
@@ -149,17 +149,17 @@ export default function BoostPanel() {
   return (
     <div className="flex flex-col gap-3">
       {overview && !privileged && (
-        <AdminNotice>Cần quyền Administrator để Boost và đọc standby/modified.</AdminNotice>
+        <AdminNotice>Administrator privileges are required to run Boost and read standby/modified memory.</AdminNotice>
       )}
       <div className="grid items-start gap-3 lg:grid-cols-3">
         <BoostCard
           title="Boost"
-          badge={<span className="rounded bg-accent/15 px-1.5 py-0.5 text-[11px] font-medium text-accent">Khuyên dùng</span>}
-          description="Ghi dữ liệu đang chờ ra đĩa và xoá cache ít dùng. Giữ cache của ứng dụng hay dùng nên không làm chậm máy."
+          badge={<span className="rounded bg-accent/15 px-1.5 py-0.5 text-[11px] font-medium text-accent">Recommended</span>}
+          description="Flushes pending data to disk and clears low-priority cache. Frequently used app cache is kept to avoid slowing down your PC."
           result={results.light}
         >
           <Button variant="primary" loading={busy === "light"} disabled={locked} onClick={() => run("light")}>
-            {busy === "light" ? "Đang Boost…" : "Boost ngay"}
+            {busy === "light" ? "Boosting…" : "Boost now"}
           </Button>
         </BoostCard>
 
@@ -173,29 +173,29 @@ export default function BoostPanel() {
                   needsBoost ? "bg-amber-500/15 text-amber-700 dark:text-amber-300" : "bg-green-500/15 text-green-700 dark:text-green-300"
                 }`}
               >
-                {needsBoost ? "Nên Boost" : "RAM còn đủ"}
+                {needsBoost ? "Boost recommended" : "Enough RAM available"}
               </span>
             )
           }
           description={
             <>
-              Chỉ chạy khi RAM khả dụng dưới ngưỡng{threshold != null && <> <b>{threshold}%</b></>}
-              {availablePct != null && <> · hiện còn <b>{availablePct.toFixed(0)}%</b></>}. Chạy như Boost nhanh: ghi dữ liệu chờ xuống đĩa, giữ cache của app hay dùng.
+              Runs only when available RAM falls below the threshold{threshold != null && <> <b>{threshold}%</b></>}
+              {availablePct != null && <> · currently <b>{availablePct.toFixed(0)}%</b></>}. Works like Quick Boost: flushes pending data to disk and keeps frequently used app cache.
             </>
           }
           result={results.smart}
         >
           <Button variant="secondary" loading={busy === "smart"} disabled={locked} onClick={() => run("smart")}>
-            {busy === "smart" ? "Đang kiểm tra…" : "Kiểm tra & Boost"}
+            {busy === "smart" ? "Checking…" : "Check & Boost"}
           </Button>
         </BoostCard>
 
         <BoostCard
-          title="Boost sâu"
+          title="Deep Boost"
           description={
             <>
-              Xoá toàn bộ cache standby{s?.standby != null && <> (khoảng <b>{formatBytes(s.standby)}</b>)</>}. RAM trống tăng mạnh nhưng
-              RAM khả dụng hầu như không đổi, lần mở ứng dụng sau sẽ chậm hơn.
+              Clear all standby cache{s?.standby != null && <> (about <b>{formatBytes(s.standby)}</b>)</>}. Free RAM increases significantly, but
+              available RAM barely changes; apps may take longer to open afterward.
             </>
           }
           result={results.deep}
@@ -203,10 +203,10 @@ export default function BoostPanel() {
           {confirmDeep ? (
             <>
               <Button variant="warning" loading={busy === "deep"} disabled={locked} onClick={() => run("deep")}>
-                Xác nhận Boost sâu
+                Confirm Deep Boost
               </Button>
               <Button variant="ghost" disabled={busy !== null} onClick={() => setConfirmDeep(false)}>
-                Huỷ
+                Cancel
               </Button>
             </>
           ) : (
@@ -219,7 +219,7 @@ export default function BoostPanel() {
                 setConfirmDeep(true);
               }}
             >
-              {busy === "deep" ? "Đang Boost sâu…" : "Boost sâu…"}
+              {busy === "deep" ? "Running Deep Boost…" : "Deep Boost…"}
             </Button>
           )}
         </BoostCard>

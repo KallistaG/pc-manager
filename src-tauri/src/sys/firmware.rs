@@ -59,7 +59,7 @@ mod tests {
     #[test]
     fn reads_this_machines_table() {
         // Mọi máy x64 có UEFI/BIOS đều có SMBIOS; chỉ cần đọc được và phân tích không lỗi.
-        let t = super::smbios_table().expect("đọc được bảng SMBIOS");
+        let t = super::smbios_table().expect("SMBIOS table should be readable");
         assert!(t.len() > 100);
         let s = crate::hwinfo::smbios::parse(&t);
         assert!(s.bios.vendor.is_some() || s.bios.version.is_some());

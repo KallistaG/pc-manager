@@ -361,19 +361,19 @@ fn launch_route(id: &str, elevated: bool, other_user: bool) -> LaunchRoute {
 
 /// Mở trình gỡ cài đặt của app `id`. Lệnh luôn đọc lại từ registry, không nhận từ UI.
 pub fn uninstall(store: &Store, id: &str) -> AppResult<Started> {
-    let app = installed::find(id).ok_or_else(|| AppError::NotFound("ứng dụng không còn trong danh sách".into()))?;
+    let app = installed::find(id).ok_or_else(|| AppError::NotFound("The app is no longer in the list".into()))?;
     let result = (|| {
         if app.no_remove {
-            return Err(AppError::Forbidden(format!("{} không cho phép gỡ cài đặt", app.name)));
+            return Err(AppError::Forbidden(format!("{} does not allow uninstallation", app.name)));
         }
-        let raw = app.uninstall.as_deref().ok_or_else(|| AppError::NotFound("không có lệnh gỡ cài đặt".into()))?;
+        let raw = app.uninstall.as_deref().ok_or_else(|| AppError::NotFound("No uninstall command is available".into()))?;
         let sys32 = PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into())).join("System32");
-        let cmd = parse_uninstall(raw, &sys32).ok_or_else(|| AppError::InvalidInput(format!("không hiểu lệnh gỡ: {raw}")))?;
+        let cmd = parse_uninstall(raw, &sys32).ok_or_else(|| AppError::InvalidInput(format!("Unrecognized uninstall command: {raw}")))?;
         if !cmd.program.is_file() {
             // Thường gặp sau khi đã gỡ: trình gỡ tự xoá mình nhưng để lại mục Uninstall trong registry.
             return Err(AppError::Other(format!(
-                "trình gỡ không còn trên máy ({}) — app có thể đã được gỡ nhưng còn sót mục trong danh sách. \
-                 Bấm \"Dọn sót\" để xoá phần còn lại, kể cả mục này (registry được sao lưu .reg trước khi xoá).",
+                "The uninstaller is no longer on this PC ({}). The app may already be uninstalled, but an entry remains in the list. \
+                 Click \"Clean leftovers\" to remove the remaining files and this entry (the registry is backed up to a .reg file first).",
                 cmd.program.display()
             )));
         }
@@ -389,21 +389,21 @@ pub fn uninstall(store: &Store, id: &str) -> AppResult<Started> {
                 Ok(pid) => pid,
                 Err(e) if e.code() == windows::core::HRESULT::from_win32(ERROR_ELEVATION_REQUIRED as u32) => {
                     return Err(AppError::Forbidden(format!(
-                        "trình gỡ của {} (cài riêng cho người dùng) đòi quyền Administrator. Vì an toàn, PC Manager \
-                         không chạy nó bằng quyền admin của mình — hãy mở lại PC Manager ở quyền thường rồi gỡ \
-                         (Windows sẽ hỏi UAC), hoặc gỡ trong Settings → Apps",
+                        "The per-user uninstaller for {} requires administrator privileges. For safety, PC Manager \
+                         will not run it with its own administrator token — reopen PC Manager normally and uninstall it \
+                         (Windows will prompt for UAC), or uninstall it in Settings → Apps",
                         app.name
                     )));
                 }
                 Err(e) => {
                     return Err(AppError::Other(format!(
-                        "không chạy được trình gỡ dưới quyền thường của tài khoản đang đăng nhập: {}",
+                        "Could not run the uninstaller with standard privileges for the signed-in account: {}",
                         e.message()
                     )))
                 }
             };
-            let who = crate::user::other_account().unwrap_or("người dùng đang đăng nhập");
-            return Ok((format!("{shown} (chạy dưới {who}, quyền thường)"), pid));
+            let who = crate::user::other_account().unwrap_or("the signed-in user");
+            return Ok((format!("{shown} (running as {who} with standard privileges)"), pid));
         }
         match std::process::Command::new(&cmd.program).raw_arg(&cmd.args).spawn() {
             Ok(child) => Ok((shown, child.id())),
@@ -413,11 +413,11 @@ pub fn uninstall(store: &Store, id: &str) -> AppResult<Started> {
                 match crate::sys::shell::run_elevated_pid(&cmd.program, &cmd.args) {
                     Ok(Some(pid)) => Ok((format!("{shown} (qua UAC)"), pid)),
                     Ok(None) => Err(AppError::Forbidden(format!(
-                        "{} được cài cho cả máy nên cần quyền Administrator để gỡ — bạn đã bấm No ở hộp UAC, chưa gỡ gì",
+                        "{} is installed for all users and requires administrator privileges to uninstall — you selected No in the UAC prompt, so nothing was removed",
                         app.name
                     ))),
                     Err(e) => Err(AppError::Other(format!(
-                        "{} được cài cho cả máy, cần quyền Administrator để gỡ — không mở được hộp UAC: {}",
+                        "{} is installed for all users and requires administrator privileges to uninstall — could not open the UAC prompt: {}",
                         app.name,
                         e.message()
                     ))),
@@ -513,9 +513,9 @@ mod tests {
 
     #[test]
     fn per_user_uninstaller_never_runs_with_admin_token() {
-        assert_eq!(launch_route(r"HKCU\X", true, false), LaunchRoute::ShellUser, "cùng tài khoản, đang admin");
-        assert_eq!(launch_route(r"HKCU\X", true, true), LaunchRoute::ShellUser, "khác tài khoản");
-        assert_eq!(launch_route(r"HKCU\X", false, false), LaunchRoute::Direct, "quyền thường: chạy thẳng");
+        assert_eq!(launch_route(r"HKCU\X", true, false), LaunchRoute::ShellUser, "same account, elevated");
+        assert_eq!(launch_route(r"HKCU\X", true, true), LaunchRoute::ShellUser, "different account");
+        assert_eq!(launch_route(r"HKCU\X", false, false), LaunchRoute::Direct, "standard privileges: launch directly");
         assert_eq!(launch_route(r"HKLM\X", true, false), LaunchRoute::Direct);
         assert_eq!(launch_route(r"HKLM\X", false, false), LaunchRoute::Direct);
     }
@@ -532,7 +532,7 @@ mod tests {
             return;
         }
         let exe = PathBuf::from(std::env::var("SystemRoot").unwrap()).join(r"System32\msconfig.exe");
-        let err = std::process::Command::new(exe).spawn().expect_err("không được chạy khi thiếu quyền admin");
+        let err = std::process::Command::new(exe).spawn().expect_err("must not run without administrator privileges");
         assert_eq!(err.raw_os_error(), Some(ERROR_ELEVATION_REQUIRED));
     }
 
@@ -581,7 +581,7 @@ mod tests {
         let mut t = ProcessTree::new(100, 1000);
         // unins000.exe (100) chạy bản chép _iu14D2N.tmp (200) rồi thoát.
         assert!(t.update(&[(100, 4, 1001), (200, 100, 1002), (300, 4, 900)]));
-        assert!(t.update(&[(200, 100, 1002), (300, 4, 900)]), "con vẫn chạy dù gốc đã thoát");
+        assert!(t.update(&[(200, 100, 1002), (300, 4, 900)]), "the child remains running after the parent exits");
         // Cháu (UAC elevate) — cha 200 vẫn được nhận ra.
         assert!(t.update(&[(200, 100, 1002), (250, 200, 1003)]));
         assert!(t.update(&[(250, 200, 1003)]));
@@ -604,7 +604,7 @@ mod tests {
             .unwrap();
         assert!(wait_uninstall(child.id(), started, Duration::from_secs(30)));
         let _ = child.wait();
-        assert!(t0.elapsed() >= Duration::from_millis(1500), "phải chờ cả ping: {:?}", t0.elapsed());
+        assert!(t0.elapsed() >= Duration::from_millis(1500), "must wait for the ping as well: {:?}", t0.elapsed());
     }
 
     #[test]
@@ -656,7 +656,7 @@ mod tests {
 
     /// Chẩn đoán: `cargo test print_apps -- --ignored --nocapture`.
     #[test]
-    #[ignore = "chỉ để xem dữ liệu thật"]
+    #[ignore = "prints real machine data only"]
     fn print_apps() {
         let store = Store::in_memory().unwrap();
         let o = list(&store, &|_| {}).unwrap();

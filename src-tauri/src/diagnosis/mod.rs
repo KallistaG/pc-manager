@@ -64,9 +64,9 @@ fn reg_key_exists(path: &str) -> bool {
 pub fn run(state: &AppState, deep: bool, report: &dyn Fn(DiagProgress)) -> AppResult<Report> {
     let started = Instant::now();
     let steps: &[&'static str] = if deep {
-        &["Bộ nhớ", "Ổ đĩa", "Rác & Thùng rác", "Khởi động", "Ứng dụng", "Windows", "Phần cứng", "Kho WinSxS (DISM, ~1 phút)"]
+        &["Memory", "Disk", "Junk & Recycle Bin", "Startup", "Apps", "Windows", "Hardware", "WinSxS store (DISM, ~1 min)"]
     } else {
-        &["Bộ nhớ", "Ổ đĩa", "Rác & Thùng rác", "Khởi động", "Ứng dụng", "Windows", "Phần cứng"]
+        &["Memory", "Disk", "Junk & Recycle Bin", "Startup", "Apps", "Windows", "Hardware"]
     };
     let total = u32::try_from(steps.len()).unwrap_or(u32::MAX);
     let mut done = 0u32;
@@ -104,10 +104,10 @@ pub fn run(state: &AppState, deep: bool, report: &dyn Fn(DiagProgress)) -> AppRe
             s.recycle_bytes = Some(scan.rules.iter().filter(ready).filter(|r| r.id == RECYCLE_RULE).map(|r| r.bytes).sum());
             s.junk_bytes = Some(scan.rules.iter().filter(ready).filter(|r| r.id != RECYCLE_RULE).map(|r| r.bytes).sum());
             if !sys::token::is_elevated().unwrap_or(false) {
-                notes.push("Một số mục rác (Windows Temp, cache Windows Update…) cần quyền Administrator nên chưa được tính.".into());
+                notes.push("Some junk items (Windows Temp, Windows Update cache…) require administrator privileges and were not included.".into());
             }
         }
-        Err(e) => notes.push(format!("Chưa ước lượng được rác: {e}")),
+        Err(e) => notes.push(format!("Could not estimate junk: {e}")),
     }
 
     step(3);
@@ -142,10 +142,10 @@ pub fn run(state: &AppState, deep: bool, report: &dyn Fn(DiagProgress)) -> AppRe
             // Theo đánh giá của PC Manager, không phải "Recommended" nguyên văn của DISM (hay báo Yes
             // mãi cả khi dọn không lấy lại được gì).
             Ok(a) => s.winsxs_recommended = Some(a.verdict == crate::cleaner::system::WinSxsVerdict::Recommended),
-            Err(e) => notes.push(format!("Không phân tích được WinSxS: {e}")),
+            Err(e) => notes.push(format!("Could not analyze WinSxS: {e}")),
         }
     }
-    report(DiagProgress { step: "Phân tích kết quả", done: total, total });
+    report(DiagProgress { step: "Analyzing results", done: total, total });
 
     let findings = analyze(&s);
     Ok(Report {
@@ -166,8 +166,8 @@ mod tests {
         let steps = std::sync::Mutex::new(Vec::new());
         let r = super::run(&state, false, &|p| steps.lock().unwrap().push(p.step)).unwrap();
         println!("{} ms\n{}", r.duration_ms, serde_json::to_string_pretty(&r).unwrap_or_default());
-        assert_eq!(r.categories.len(), 6, "đủ 6 nhóm");
-        assert!(steps.lock().unwrap().len() >= 7, "báo tiến độ từng bước");
+        assert_eq!(r.categories.len(), 6, "all 6 categories are included");
+        assert!(steps.lock().unwrap().len() >= 7, "progress is reported for every step");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

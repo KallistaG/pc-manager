@@ -61,9 +61,9 @@ const processes = {
     proc("Spotify.exe", 1.2, 241, "Spotify AB"),
     proc("explorer.exe", 0.4, 96, "Microsoft Windows", { path: "C:\\Windows\\explorer.exe" }),
     proc("msedgewebview2.exe", 0.2, 74, "Microsoft Corporation"),
-    proc("pc-manager.exe", 0.1, 5, null, { protectedReason: "chính PC Manager" }),
+    proc("pc-manager.exe", 0.1, 5, null, { protectedReason: "PC Manager itself" }),
     proc("svchost.exe", 0.3, 42, "Microsoft Windows", { path: "C:\\Windows\\System32\\svchost.exe" }),
-    proc("csrss.exe", 0.1, 3, "Microsoft Windows", { path: null, protectedReason: "tiến trình hệ thống quan trọng" }),
+    proc("csrss.exe", 0.1, 3, "Microsoft Windows", { path: null, protectedReason: "critical system process" }),
   ],
 };
 
@@ -114,16 +114,16 @@ const cleanerScan = {
   cancelled: false,
   totalBytes: 0,
   rules: [
-    rule("user-temp", "File tạm của bạn", "File tạm", "low", 1.42 * GB, 3812, { skippedYoung: 41 }),
-    rule("windows-temp", "File tạm của Windows", "File tạm", "low", 384 * MB, 911),
-    rule("thumbnail-cache", "Cache ảnh thu nhỏ", "Cache hệ thống", "low", 212 * MB, 14),
-    rule("directx-shader-cache", "Cache shader DirectX", "Cache hệ thống", "low", 96 * MB, 402),
-    rule("chrome-cache", "Cache Google Chrome", "Trình duyệt", "low", 0, 0, { status: { kind: "blocked", reason: "Chrome đang chạy" } }),
-    rule("edge-cache", "Cache Microsoft Edge", "Trình duyệt", "low", 318 * MB, 2210),
-    rule("crash-dumps", "Bản ghi lỗi ứng dụng (crash dump)", "Bản ghi lỗi", "low", 640 * MB, 6),
-    rule("wer-user", "Báo cáo lỗi Windows (của bạn)", "Bản ghi lỗi", "low", 58 * MB, 37),
-    rule("windows-update-cache", "Bản cập nhật Windows đã tải", "Windows Update", "medium", 2.31 * GB, 128, { usesService: true }),
-    rule("recycle-bin", "Thùng rác", "Thùng rác", "high", 1.05 * GB, 64, { defaultSelected: false }),
+    rule("user-temp", "User temporary files", "Temporary files", "low", 1.42 * GB, 3812, { skippedYoung: 41 }),
+    rule("windows-temp", "Windows temporary files", "Temporary files", "low", 384 * MB, 911),
+    rule("thumbnail-cache", "Thumbnail cache", "System cache", "low", 212 * MB, 14),
+    rule("directx-shader-cache", "DirectX shader cache", "System cache", "low", 96 * MB, 402),
+    rule("chrome-cache", "Cache Google Chrome", "Browser", "low", 0, 0, { status: { kind: "blocked", reason: "Chrome is running" } }),
+    rule("edge-cache", "Cache Microsoft Edge", "Browser", "low", 318 * MB, 2210),
+    rule("crash-dumps", "Application crash dumps", "Error reports", "low", 640 * MB, 6),
+    rule("wer-user", "Windows error reports (user)", "Error reports", "low", 58 * MB, 37),
+    rule("windows-update-cache", "Downloaded Windows updates", "Windows Update", "medium", 2.31 * GB, 128, { usesService: true }),
+    rule("recycle-bin", "Recycle Bin", "Recycle Bin", "high", 1.05 * GB, 64, { defaultSelected: false }),
   ],
 };
 cleanerScan.totalBytes = cleanerScan.rules.reduce((s, r) => s + r.bytes, 0);
@@ -189,10 +189,10 @@ dups.wastedBytes = dups.groups.reduce((s, g) => s + g.size * (g.files.length - 1
 const settings = {
   autoClean: { enabled: true, intervalDays: 7, ruleIds: ["user-temp", "thumbnail-cache", "crash-dumps"], lastRunMs: now - 2 * DAY },
   autoRules: [
-    { id: "user-temp", name: "File tạm của bạn", description: "%TEMP% — file cũ hơn 24 giờ" },
-    { id: "thumbnail-cache", name: "Cache ảnh thu nhỏ", description: "thumbcache_*.db" },
+    { id: "user-temp", name: "User temporary files", description: "%TEMP% — files older than 24 hours" },
+    { id: "thumbnail-cache", name: "Thumbnail cache", description: "thumbcache_*.db" },
     { id: "directx-shader-cache", name: "Cache shader DirectX", description: "D3DSCache" },
-    { id: "crash-dumps", name: "Bản ghi lỗi ứng dụng (crash dump)", description: "*.dmp" },
+    { id: "crash-dumps", name: "Application crash dumps", description: "*.dmp" },
   ],
   whitelist: ["D:\\Projects", "C:\\Users\\Demo\\AppData\\Local\\Steam"],
   autostart: true,
@@ -232,7 +232,7 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   update_check: () => ({
     current: "1.2.1",
     // Mặc định không có bản mới (ảnh README); thêm `&update` vào URL để xem dải thông báo cập nhật.
-    available: !params.has("update") ? null : { version: "1.3.0", notes: "### Bảo mật\n- Gỡ app cài riêng cho người dùng luôn chạy với quyền thường.\n\n### Thay đổi\n- Tác vụ dài có tiến độ và nối lại được.", dateMs: now - DAY },
+    available: !params.has("update") ? null : { version: "1.3.0", notes: "### Security\n- Per-user apps are always uninstalled with standard user privileges.\n\n### Changes\n- Long-running tasks now report progress and can resume.", dateMs: now - DAY },
     auto: true,
     lastCheckMs: now - 60_000,
     configured: true,
@@ -244,14 +244,14 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
     const fixed = diagRuns > 1;
     const findings = [
       fixed
-        ? { id: "junk", category: "storage", severity: "ok", title: "Ít rác", detail: "Không có nhiều file tạm/cache cần dọn.", metric: "120 MB", action: null }
-        : { id: "junk", category: "storage", severity: "warn", title: "Có 4.2 GB rác dọn được", detail: "File tạm, cache, bản ghi lỗi… Xem trước rồi chọn mục muốn dọn.", metric: "4.2 GB", action: { kind: "open", page: "cleaner", label: "Xem & dọn" } },
-      { id: "disk-system", category: "storage", severity: fixed ? "warn" : "critical", title: "Ổ hệ thống C: sắp đầy", detail: "Windows cần chỗ trống để cập nhật và tạo file tạm; ổ đầy làm máy chậm.", metric: fixed ? "ổ C: còn 11% (27.5 GB)" : "ổ C: còn 9% (23.1 GB)", action: { kind: "open", page: "cleaner", label: "Dọn rác" } },
-      { id: "startup", category: "startup", severity: "warn", title: "16 app khởi động cùng Windows", detail: "Nhiều app chạy lúc bật máy làm khởi động lâu và tốn RAM. Tắt bớt app không cần (không xoá app).", metric: "16 app", action: { kind: "open", page: "startup", label: "Xem app khởi động" } },
-      { id: "ram", category: "memory", severity: "ok", title: "RAM ổn", detail: "Còn đủ bộ nhớ trống.", metric: "còn trống 41% (13.1 GB)", action: null },
-      { id: "apps-unused", category: "apps", severity: "info", title: "3 app không dùng hơn 6 tháng (9.4 GB)", detail: "Lớn nhất: Adobe Photoshop 2024, Blender 3.6. Gỡ app không cần để lấy lại dung lượng.", metric: "3 app · 9.4 GB", action: { kind: "open", page: "apps", label: "Xem ứng dụng" } },
-      { id: "restart", category: "windows", severity: "info", title: "18 ngày chưa khởi động lại hẳn", detail: "Restart giúp giải phóng bộ nhớ bị giữ lâu và áp dụng cập nhật. Fast Startup đang bật nên Shut down rồi mở máy không làm mới Windows — chỉ Restart mới làm.", metric: "18 ngày", action: null },
-      { id: "ram-xmp", category: "hardware", severity: "info", title: "RAM đang chạy chậm hơn mức hỗ trợ", detail: "Bật XMP (Intel) / EXPO (AMD) trong BIOS để RAM chạy đúng tốc độ. Chỉ làm nếu bạn quen chỉnh BIOS.", metric: "4800 / 6000 MT/s", action: null },
+        ? { id: "junk", category: "storage", severity: "ok", title: "Little junk found", detail: "There are not many temporary files or caches to clean.", metric: "120 MB", action: null }
+        : { id: "junk", category: "storage", severity: "warn", title: "4.2 GB of junk can be cleaned", detail: "Temporary files, caches, and error reports… Review the results and choose what to clean.", metric: "4.2 GB", action: { kind: "open", page: "cleaner", label: "Review & clean" } },
+      { id: "disk-system", category: "storage", severity: fixed ? "warn" : "critical", title: "System drive C: is almost full", detail: "Windows needs free space for updates and temporary files; a full drive can slow down your PC.", metric: fixed ? "C: 11% free (27.5 GB)" : "C: 9% free (23.1 GB)", action: { kind: "open", page: "cleaner", label: "Clean junk" } },
+      { id: "startup", category: "startup", severity: "warn", title: "16 apps start with Windows", detail: "Too many startup apps can slow boot and use memory. Disable apps you do not need (this does not uninstall them).", metric: "16 app", action: { kind: "open", page: "startup", label: "View startup apps" } },
+      { id: "ram", category: "memory", severity: "ok", title: "RAM looks good", detail: "There is enough available memory.", metric: "41% available (13.1 GB)", action: null },
+      { id: "apps-unused", category: "apps", severity: "info", title: "3 apps unused for over 6 months (9.4 GB)", detail: "Largest: Adobe Photoshop 2024, Blender 3.6. Uninstall apps you no longer need to free up space.", metric: "3 app · 9.4 GB", action: { kind: "open", page: "apps", label: "View apps" } },
+      { id: "restart", category: "windows", severity: "info", title: "No full restart in 18 days", detail: "Restarting can free memory held for a long time and apply updates. Fast Startup is enabled, so shutting down and turning your PC back on does not reset Windows — only Restart does.", metric: "18 days", action: null },
+      { id: "ram-xmp", category: "hardware", severity: "info", title: "RAM is running below its rated speed", detail: "Enable XMP (Intel) / EXPO (AMD) in BIOS to run RAM at its rated speed. Only do this if you are comfortable changing BIOS settings.", metric: "4800 / 6000 MT/s", action: null },
     ];
     const rank = { ok: 0, info: 1, warn: 2, critical: 3 } as Record<string, number>;
     findings.sort((a, b) => rank[b.severity] - rank[a.severity]);
@@ -306,11 +306,11 @@ let cb = 1;
 const clickText = (text: string) =>
   [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === text)?.click();
 const script: Record<string, Array<[number, () => void]>> = {
-  cleaner: [[600, () => clickText("Quét ngay")]],
+  cleaner: [[600, () => clickText("Scan now")]],
   disk: [
-    [600, () => clickText("File trùng")],
-    [900, () => clickText("Quét")],
-    [1500, () => clickText("Chọn bản thừa")],
+    [600, () => clickText("Duplicates")],
+    [900, () => clickText("Scan")],
+    [1500, () => clickText("Select extra copies")],
   ],
 };
 for (const [delay, fn] of script[page] ?? []) setTimeout(fn, delay);
