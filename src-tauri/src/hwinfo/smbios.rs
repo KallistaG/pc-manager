@@ -330,7 +330,7 @@ mod tests {
         assert_eq!(s.bios.vendor.as_deref(), Some("American Megatrends"));
         assert_eq!(s.bios.release_date.as_deref(), Some("03/15/2025"));
         assert_eq!(s.board.system_manufacturer.as_deref(), Some("ASUS"));
-        assert_eq!(s.board.system_product, None, "placeholder bị bỏ");
+        assert_eq!(s.board.system_product, None, "placeholder should be ignored");
         assert_eq!(s.board.product.as_deref(), Some("ROG STRIX B650-A"));
         let cpu = &s.cpus[0];
         assert_eq!((cpu.cores, cpu.threads, cpu.max_mhz), (Some(16), Some(32), Some(5700)));
@@ -341,7 +341,7 @@ mod tests {
         assert_eq!(m.kind.as_deref(), Some("DDR5"));
         assert_eq!((m.speed_mts, m.configured_mts), (Some(6000), Some(4800)));
         assert_eq!(m.part_number.as_deref(), Some("KF560C36-16"));
-        assert_eq!(s.slots[1].size_mb, None, "khe trống");
+        assert_eq!(s.slots[1].size_mb, None, "empty slot");
         assert_eq!(s.slots[1].locator.as_deref(), Some("DIMM_A1"));
     }
 

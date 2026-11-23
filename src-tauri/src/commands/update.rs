@@ -83,17 +83,17 @@ pub async fn update_check(app: AppHandle, force: bool) -> AppResult<UpdateInfo> 
         .updater_builder()
         // Bộ cài chạy rồi app thoát bằng process::exit: gỡ icon tray trước, ghi nhật ký.
         .on_before_exit(move || {
-            handle.state::<AppState>().store.log_action_best_effort("app.update", "PC Manager", true, "đã tải và kiểm chữ ký, chạy bộ cài");
+            handle.state::<AppState>().store.log_action_best_effort("app.update", "PC Manager", true, "Downloaded, verified the signature, and launched the installer");
             handle.cleanup_before_exit();
         })
         .timeout(Duration::from_secs(30))
         .build()
-        .map_err(|e| AppError::Other(format!("không khởi tạo được trình cập nhật: {e}")))?
+        .map_err(|e| AppError::Other(format!("Could not initialize the updater: {e}")))?
         .check()
         .await;
     s.last_check_ms = Some(now);
     let _ = s.save(&app.state::<AppState>().store);
-    let found = checked.map_err(|e| AppError::Other(format!("không kiểm tra được bản mới (cần mạng tới github.com): {e}")))?;
+    let found = checked.map_err(|e| AppError::Other(format!("Could not check for updates (a connection to github.com is required): {e}")))?;
     *app.state::<PendingUpdate>().0.lock_recover() = found;
     Ok(info(&app, &s))
 }
@@ -104,7 +104,7 @@ pub async fn update_set_auto(app: AppHandle, enabled: bool) -> AppResult<UpdateI
     let mut s = UpdateSettings::load(store);
     s.auto = enabled;
     s.save(store)?;
-    store.log_action_best_effort("settings.update", "tự kiểm tra cập nhật", true, if enabled { "bật" } else { "tắt" });
+    store.log_action_best_effort("settings.update", "automatic update check", true, if enabled { "enabled" } else { "disabled" });
     Ok(info(&app, &s))
 }
 
@@ -114,7 +114,7 @@ pub async fn update_set_auto(app: AppHandle, enabled: bool) -> AppResult<UpdateI
 pub async fn update_install(app: AppHandle, on_progress: Channel<UpdateProgress>) -> AppResult<()> {
     if !configured(&app) {
         return Err(AppError::Forbidden(
-            "bản PC Manager này chưa được cấu hình khoá ký cập nhật — hãy tải bản mới từ GitHub Release".into(),
+            "This PC Manager build is not configured with an update signing key — download the latest version from GitHub Releases.".into(),
         ));
     }
     let update = app
@@ -122,9 +122,9 @@ pub async fn update_install(app: AppHandle, on_progress: Channel<UpdateProgress>
         .0
         .lock_recover()
         .clone()
-        .ok_or_else(|| AppError::InvalidInput("chưa có bản mới — hãy bấm Kiểm tra cập nhật".into()))?;
+        .ok_or_else(|| AppError::InvalidInput("No update is available — click Check for updates".into()))?;
     let store = &app.state::<AppState>().store;
-    store.log_action_best_effort("app.update", "PC Manager", true, &format!("tải {} → {}", update.current_version, update.version));
+    store.log_action_best_effort("app.update", "PC Manager", true, &format!("Downloading {} → {}", update.current_version, update.version));
     let mut downloaded = 0u64;
     let mut last = Instant::now() - Duration::from_secs(1);
     let result = update
@@ -143,7 +143,7 @@ pub async fn update_install(app: AppHandle, on_progress: Channel<UpdateProgress>
     match result {
         Ok(()) => Ok(()),
         Err(e) => {
-            let msg = format!("không cập nhật được lên {}: {e}", update.version);
+            let msg = format!("Could not update to {}: {e}", update.version);
             store.log_action_best_effort("app.update", "PC Manager", false, &msg);
             Err(AppError::Other(msg))
         }

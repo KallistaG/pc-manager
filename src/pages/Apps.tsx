@@ -25,24 +25,24 @@ import { daysAgo, formatBytes, formatDate, relativeDays } from "../lib/format";
 type SortKey = "size" | "name" | "lastUsed" | "installed";
 
 const UNUSED_FILTERS: { days: number; label: string }[] = [
-  { days: 0, label: "Tất cả" },
-  { days: 30, label: "Không dùng > 30 ngày" },
-  { days: 90, label: "> 90 ngày" },
-  { days: 180, label: "> 6 tháng" },
-  { days: 365, label: "> 1 năm" },
+  { days: 0, label: "All apps" },
+  { days: 30, label: "Unused for > 30 days" },
+  { days: 90, label: "> 90 days" },
+  { days: 180, label: "> 6 months" },
+  { days: 365, label: "> 1 year" },
 ];
 
 const SOURCE_LABEL: Record<UsageSource, string> = {
-  userAssist: "Windows ghi nhận khi mở từ Start/Explorer (UserAssist)",
+  userAssist: "Windows records launches from Start or File Explorer (UserAssist)",
   prefetch: "Windows Prefetch",
-  pcManager: "PC Manager thấy ứng dụng đang chạy",
+  pcManager: "Observed running by PC Manager",
 };
 
 function LastUsed({ a }: { a: InstalledApp }) {
   if (a.lastUsedMs == null) {
     return (
-      <span className="opacity-50" title="Không nguồn nào ghi nhận lần chạy. Có thể app chạy ngầm, qua dòng lệnh, hoặc thật sự chưa được dùng.">
-        Chưa rõ
+      <span className="opacity-50" title="No source recorded a launch. The app may run in the background, be launched from the command line, or have never been used.">
+        Unknown
       </span>
     );
   }
@@ -128,9 +128,9 @@ export default function Apps() {
         setMsg({
           tone: r.failed ? "error" : "ok",
           text:
-            `Dọn phần còn sót xong: ${r.recycled} mục (${formatBytes(r.recycledBytes)}) vào Thùng rác` +
-            (r.registryRemoved ? ", đã xoá mục registry (có sao lưu .reg)" : "") +
-            (r.failed ? `, ${r.failed} mục lỗi` : "") +
+            `Leftover cleanup complete: ${r.recycled} item(s) (${formatBytes(r.recycledBytes)}) moved to the Recycle Bin` +
+            (r.registryRemoved ? ", registry entries removed (backed up to .reg)" : "") +
+            (r.failed ? `, ${r.failed} item(s) failed` : "") +
             ".",
         });
         load();
@@ -148,14 +148,14 @@ export default function Apps() {
       });
       load();
       if (e.timedOut) {
-        setMsg({ tone: "error", text: `${e.name}: trình gỡ chạy quá lâu, PC Manager thôi theo dõi. Gỡ xong hãy bấm "Dọn sót".` });
+        setMsg({ tone: "error", text: `${e.name}: the uninstaller is taking too long; PC Manager stopped monitoring it. When it finishes, click "Clean leftovers".` });
       } else if (e.stillInstalled) {
         setMsg({
           tone: "error",
-          text: `Trình gỡ của ${e.name} đã đóng nhưng ứng dụng vẫn còn (đã huỷ hoặc gỡ lỗi). Nếu trình gỡ báo lỗi, dùng "Dọn sót".`,
+          text: `The ${e.name} uninstaller closed, but the app is still installed (cancelled or failed). If the uninstaller reported an error, use "Clean leftovers".`,
         });
       } else {
-        setMsg({ tone: "ok", text: `Đã gỡ ${e.name}. Đang tìm phần còn sót…` });
+        setMsg({ tone: "ok", text: `Uninstalled ${e.name}. Looking for leftovers…` });
         setLeftoverApp({ id: e.id, name: e.name, afterUninstall: true });
       }
     });
@@ -178,31 +178,31 @@ export default function Apps() {
     });
     const by: Record<SortKey, (a: InstalledApp, b: InstalledApp) => number> = {
       size: (a, b) => (b.sizeBytes ?? -1) - (a.sizeBytes ?? -1),
-      name: (a, b) => a.name.localeCompare(b.name, "vi", { sensitivity: "base" }),
+      name: (a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }),
       // Lâu chưa dùng lên đầu; "chưa rõ" xuống cuối.
       lastUsed: (a, b) => (a.lastUsedMs ?? Infinity) - (b.lastUsedMs ?? Infinity),
       installed: (a, b) => (a.installDateMs ?? Infinity) - (b.installDateMs ?? Infinity),
     };
-    return [...list].sort((a, b) => by[sort](a, b) || a.name.localeCompare(b.name));
+    return [...list].sort((a, b) => by[sort](a, b) || a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
   }, [data, query, unusedDays, includeUnknown, sort]);
 
   const totalSize = rows.reduce((s, a) => s + (a.sizeBytes ?? 0), 0);
 
   const uninstall = (a: InstalledApp) =>
     setConfirm({
-      title: `Gỡ cài đặt ${a.name}?`,
+      title: `Uninstall ${a.name}?`,
       body: (
         <div className="space-y-2">
-          <p>PC Manager sẽ mở trình gỡ cài đặt của chính ứng dụng này. Làm theo hướng dẫn trên cửa sổ đó để hoàn tất.</p>
-          <p>Gỡ xong, PC Manager tự tìm phần còn sót (cache, AppData, shortcut…) để bạn xem và dọn.</p>
+          <p>PC Manager will open this app’s uninstaller. Follow the instructions in that window to finish.</p>
+          <p>After uninstalling, PC Manager will look for leftovers (cache, AppData, shortcuts…) for you to review and clean.</p>
           {a.lastUsedMs != null && (
             <p className="text-xs opacity-70">
-              Lần dùng cuối: {formatDate(a.lastUsedMs)} ({relativeDays(daysAgo(a.lastUsedMs))}).
+              Last used: {formatDate(a.lastUsedMs)} ({relativeDays(daysAgo(a.lastUsedMs))}).
             </p>
           )}
         </div>
       ),
-      confirmLabel: "Mở trình gỡ cài đặt",
+      confirmLabel: "Open uninstaller",
       danger: true,
       onConfirm: async () => {
         setBusyId(a.id);
@@ -212,7 +212,7 @@ export default function Apps() {
           setUninstalling((prev) => new Set(prev).add(a.id));
           setMsg({
             tone: "ok",
-            text: `Đã mở trình gỡ cài đặt của ${name}. Làm theo cửa sổ đó — gỡ xong, PC Manager sẽ tự tìm phần còn sót.`,
+            text: `Opened the ${name} uninstaller. Follow its instructions — PC Manager will look for leftovers when it finishes.`,
           });
         } catch (e) {
           setMsg({ tone: "error", text: `${a.name}: ${errorMessage(e)}` });
@@ -224,32 +224,32 @@ export default function Apps() {
 
   return (
     <PageShell
-      title="Ứng dụng"
-      subtitle="Ứng dụng đã cài, dung lượng và lần dùng cuối — tìm app lâu không dùng để gỡ bớt."
+      title="Apps"
+      subtitle="Installed apps, disk usage, and last-used times — find apps you no longer use and uninstall them."
       actions={
         <div className="flex items-center gap-2">
           <input
             type="search"
-            placeholder="Tìm tên, nhà phát hành…"
+            placeholder="Search name or publisher…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className={`w-64 xl:w-80 ${INPUT}`}
           />
           <Button variant="ghost" size="sm" className="shrink-0" loading={loading} onClick={load}>
-            {!loading && <IconRefresh />}Tải lại
+            {!loading && <IconRefresh />}Refresh
           </Button>
-          {/* Ở hàng trên cùng (không ở hàng bộ lọc): ô "Gồm cả app chưa rõ lần dùng" hiện/ẩn không đẩy nó xuống dòng. */}
+          {/* Keep sorting on the top row so the unknown-usage filter does not push it to a new line. */}
           <label className="flex shrink-0 items-center gap-2 whitespace-nowrap text-sm">
-            Sắp xếp
+            Sort
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as SortKey)}
               className={SELECT}
             >
-              <option value="size">Dung lượng</option>
-              <option value="lastUsed">Lâu chưa dùng nhất</option>
-              <option value="installed">Cài lâu nhất</option>
-              <option value="name">Tên</option>
+              <option value="size">Size</option>
+              <option value="lastUsed">Least recently used</option>
+              <option value="installed">Oldest installed</option>
+              <option value="name">Name</option>
             </select>
           </label>
         </div>
@@ -267,23 +267,23 @@ export default function Apps() {
           </button>
         ))}
         {unusedDays > 0 && (
-          <label className="ml-1 flex cursor-pointer items-center gap-2 whitespace-nowrap text-sm" title="App không nguồn nào ghi nhận lần chạy và đã cài lâu hơn số ngày đã chọn">
+          <label className="ml-1 flex cursor-pointer items-center gap-2 whitespace-nowrap text-sm" title="No source has recorded a launch, and the app has been installed longer than the selected period">
             <input type="checkbox" checked={includeUnknown} onChange={(e) => setIncludeUnknown(e.target.checked)} className="accent-[var(--color-accent)]" />
-            Gồm cả app chưa rõ lần dùng
+            Include apps with unknown usage
           </label>
         )}
       </div>
 
       {data && (
         <p className="mt-2 text-xs opacity-60">
-          Lần dùng cuối lấy từ: UserAssist ({data.userassistEntries} mục) ·{" "}
-          {data.prefetchEntries != null ? `Prefetch (${data.prefetchEntries} mục)` : "Prefetch (cần quyền Administrator)"} · PC Manager
-          {data.trackingSinceMs != null ? ` theo dõi từ ${formatDate(data.trackingSinceMs)}` : " (vừa bắt đầu theo dõi)"}.
+          Last-used data from: UserAssist ({data.userassistEntries} entries) ·{" "}
+          {data.prefetchEntries != null ? `Prefetch (${data.prefetchEntries} entries)` : "Prefetch (requires administrator privileges)"} · PC Manager
+          {data.trackingSinceMs != null ? ` tracking since ${formatDate(data.trackingSinceMs)}` : " (tracking just started)"}.
         </p>
       )}
       {data && data.prefetchEntries == null && (
         <div className="mt-2 empty:hidden">
-          <AdminNotice>Cần quyền Administrator để đọc Prefetch (lần dùng cuối chính xác hơn) và gỡ / dọn sót app cài cho cả máy.</AdminNotice>
+          <AdminNotice>Administrator privileges are required to read Prefetch (for more accurate last-used data) and uninstall or clean leftovers for system-wide apps.</AdminNotice>
         </div>
       )}
 
@@ -291,7 +291,7 @@ export default function Apps() {
         <Card className="mt-3">
           <ProgressBar
             pct={leftoverProgress && leftoverProgress.total > 0 ? (leftoverProgress.done / leftoverProgress.total) * 100 : null}
-            label={leftoverProgress ? `Đang dọn phần còn sót ${leftoverProgress.done + 1} / ${leftoverProgress.total}: ${leftoverProgress.current}` : "Đang dọn phần còn sót…"}
+            label={leftoverProgress ? `Cleaning leftovers ${leftoverProgress.done + 1} / ${leftoverProgress.total}: ${leftoverProgress.current}` : "Cleaning leftovers…"}
           />
         </Card>
       )}
@@ -316,25 +316,25 @@ export default function Apps() {
             pct={loadProgress && loadProgress.total > 0 ? (loadProgress.done / loadProgress.total) * 100 : null}
             label={
               loadProgress && loadProgress.total > 0
-                ? `Đang đọc ứng dụng và đo dung lượng: ${loadProgress.done} / ${loadProgress.total}`
-                : "Đang đọc danh sách ứng dụng…"
+                ? `Loading apps and measuring size: ${loadProgress.done} / ${loadProgress.total}`
+                : "Loading app list…"
             }
           />
         </Card>
       ) : (
         <>
           <div className="mt-3 text-sm opacity-70">
-            {rows.length} ứng dụng · tổng {formatBytes(totalSize)}
-            {unusedDays > 0 && rows.length > 0 && " có thể gỡ để lấy lại dung lượng"}
+            {rows.length} apps · {formatBytes(totalSize)} total
+            {unusedDays > 0 && rows.length > 0 && " can be uninstalled to free up space"}
           </div>
           <div className={`mt-2 min-h-0 flex-1 overflow-auto ${SURFACE}`}>
             <table className="w-full table-fixed text-sm">
               <thead className={`text-left ${THEAD}`}>
                 <tr>
-                  <th className="px-4 py-2 font-medium opacity-70">Ứng dụng</th>
-                  <th className="w-28 px-3 py-2 text-right font-medium opacity-70">Dung lượng</th>
-                  <th className="w-28 px-3 py-2 font-medium opacity-70">Ngày cài</th>
-                  <th className="w-36 px-3 py-2 font-medium opacity-70">Lần dùng cuối</th>
+                  <th className="px-4 py-2 font-medium opacity-70">App</th>
+                  <th className="w-28 px-3 py-2 text-right font-medium opacity-70">Size</th>
+                  <th className="w-28 px-3 py-2 font-medium opacity-70">Installed</th>
+                  <th className="w-36 px-3 py-2 font-medium opacity-70">Last used</th>
                   <th className="w-52 px-3 py-2" />
                 </tr>
               </thead>
@@ -347,7 +347,7 @@ export default function Apps() {
                         {[a.storeApp ? "App Store" : null, a.publisher, a.version].filter(Boolean).join(" · ") || "—"}
                       </div>
                     </td>
-                    <td className="px-3 text-right tabular-nums" title={a.sizeMeasured ? "Đo thực tế thư mục cài đặt" : "Theo số ứng dụng khai báo"}>
+                    <td className="px-3 text-right tabular-nums" title={a.sizeMeasured ? "Measured from the installation folder" : "Reported by the app"}>
                       {a.sizeBytes != null ? `${a.sizeMeasured ? "" : "≈ "}${formatBytes(a.sizeBytes)}` : <span className="opacity-40">—</span>}
                     </td>
                     <td className="px-3 tabular-nums opacity-80">{a.installDateMs != null ? formatDate(a.installDateMs) : <span className="opacity-40">—</span>}</td>
@@ -359,10 +359,10 @@ export default function Apps() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          title="App Store do Windows quản lý — mở Settings → Apps để gỡ"
+                          title="Managed by Windows — open Settings → Apps to uninstall"
                           onClick={() => api.appsOpenSettings().catch((e) => setError(errorMessage(e)))}
                         >
-                          Gỡ trong Settings
+                          Uninstall in Settings
                         </Button>
                       ) : (
                         <>
@@ -370,10 +370,10 @@ export default function Apps() {
                             variant="ghost"
                             size="sm"
                             disabled={busyId !== null}
-                            title="Tìm thư mục, shortcut, registry còn sót của app — chuyển vào Thùng rác"
+                            title="Find leftover folders, shortcuts, and registry entries — move files to the Recycle Bin"
                             onClick={() => setLeftoverApp(a)}
                           >
-                            Dọn sót
+                            Clean leftovers
                           </Button>
                           <Button
                             variant="ghost"
@@ -381,10 +381,10 @@ export default function Apps() {
                             className="text-red-600 dark:text-red-400"
                             disabled={!a.canUninstall || busyId !== null || uninstalling.has(a.id)}
                             loading={busyId === a.id || uninstalling.has(a.id)}
-                            title={a.canUninstall ? undefined : "Ứng dụng này không cho phép gỡ từ đây"}
+                            title={a.canUninstall ? undefined : "This app cannot be uninstalled from here"}
                             onClick={() => uninstall(a)}
                           >
-                            {uninstalling.has(a.id) ? "Đang gỡ…" : "Gỡ cài đặt"}
+                            {uninstalling.has(a.id) ? "Uninstalling…" : "Uninstall"}
                           </Button>
                         </>
                       )}
@@ -394,7 +394,7 @@ export default function Apps() {
                 {rows.length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-4 py-10 text-center text-sm opacity-50">
-                      {unusedDays > 0 ? "Không có ứng dụng nào lâu không dùng theo bộ lọc này" : "Không có ứng dụng"}
+                      {unusedDays > 0 ? "No unused apps match this filter" : "No apps found"}
                     </td>
                   </tr>
                 )}

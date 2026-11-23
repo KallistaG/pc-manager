@@ -139,7 +139,7 @@ export function MemoryFeedProvider({ children }: { children: ReactNode }) {
 
 export function useMemoryFeed(): Feed {
   const store = useContext(Ctx);
-  if (!store) throw new Error("useMemoryFeed phải nằm trong MemoryFeedProvider");
+  if (!store) throw new Error("useMemoryFeed must be used within MemoryFeedProvider");
   const active = usePageActive();
   useEffect(() => (active ? store.addConsumer() : undefined), [store, active]);
   // Trang ẩn: không đăng ký => không vẽ lại; khi được chọn lại, đọc ngay giá trị mới nhất.

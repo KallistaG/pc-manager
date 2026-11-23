@@ -208,36 +208,36 @@ impl Guard {
         for c in path.components() {
             match c {
                 Component::Prefix(p) if !matches!(p.kind(), Prefix::Disk(_) | Prefix::VerbatimDisk(_)) => {
-                    return Some("ổ mạng / đường dẫn đặc biệt")
+                    return Some("network drive or special path")
                 }
-                Component::CurDir | Component::ParentDir => return Some("đường dẫn chứa '.' hoặc '..'"),
+                Component::CurDir | Component::ParentDir => return Some("path contains '.' or '..'"),
                 Component::Normal(_) => normals += 1,
                 _ => {}
             }
         }
         if !path.is_absolute() || normals < 2 {
-            return Some("gốc ổ đĩa hoặc đường dẫn tương đối");
+            return Some("drive root or relative path");
         }
         let s = norm(&path.to_string_lossy());
         let name = s.rsplit('\\').next().unwrap_or_default();
         if crate::settings::is_protected(&s) {
-            return Some("nằm trong danh sách bảo vệ của bạn");
+            return Some("inside a protected folder");
         }
         if SHARED_DIRS.contains(&name) {
-            return Some("thư mục dùng chung");
+            return Some("shared folder");
         }
         if self.forbidden_under.iter().any(|f| inside(&s, f)) {
-            return Some("thư mục hệ thống hoặc dữ liệu cá nhân");
+            return Some("system or personal data folder");
         }
         if self.protected.iter().any(|p| inside(p, &s)) {
-            return Some("thư mục dùng chung");
+            return Some("shared folder");
         }
         let parent = path.parent().map(|p| norm(&p.to_string_lossy())).unwrap_or_default();
         if parent == self.users_root || (parent == self.user_profile && !name.starts_with('.')) {
-            return Some("gốc thư mục người dùng");
+            return Some("user profile root");
         }
         if self.other_apps.iter().any(|o| inside(o, &s) || inside(&s, o)) {
-            return Some("liên quan tới thư mục của ứng dụng khác");
+            return Some("related to another application folder");
         }
         None
     }
@@ -367,7 +367,7 @@ impl Collector<'_> {
         if is_link_or_cloud(&meta) || self.guard.check(&path).is_some() {
             return;
         }
-        let blocked = (meta.is_dir() && self.guard.running_inside(&path)).then(|| "có chương trình đang chạy từ thư mục này".to_owned());
+        let blocked = (meta.is_dir() && self.guard.running_inside(&path)).then(|| "A running program is using this folder".to_owned());
         let bytes = if meta.is_dir() { dir_size(&path, self.deadline) } else { Some(meta.len()) };
         self.seen.retain(|s| !inside(s, &key));
         self.items.retain(|i| i.path.as_ref().is_none_or(|p| !inside(&norm(&p.to_string_lossy()), &key)));
@@ -409,12 +409,12 @@ fn scan_data_dirs(c: &mut Collector<'_>, roots: &Roots, names: &Names) {
     for root in &roots.data {
         for (dir, name) in child_dirs(root) {
             if let Some(conf) = names.classify(&name) {
-                c.add(dir, LeftoverKind::DataDir, conf, format!("tên thư mục khớp ứng dụng ({})", root.display()));
+                c.add(dir, LeftoverKind::DataDir, conf, format!("Folder name matches the app ({})", root.display()));
             } else if names.publisher.as_deref() == Some(base(&name).as_str()) {
                 // <gốc>\<Nhà phát hành>\<App>: chỉ lấy thư mục con khớp app, không lấy thư mục nhà phát hành.
                 for (sub, sub_name) in child_dirs(&dir) {
                     if let Some(conf) = names.classify(&sub_name) {
-                        c.add(sub, LeftoverKind::DataDir, conf, format!("thư mục của app trong {name}"));
+                        c.add(sub, LeftoverKind::DataDir, conf, format!("App folder inside {name}"));
                     }
                 }
             }
@@ -423,7 +423,7 @@ fn scan_data_dirs(c: &mut Collector<'_>, roots: &Roots, names: &Names) {
     if let Some(profile) = &roots.profile {
         for (dir, name) in child_dirs(profile) {
             if name.starts_with('.') && names.classify(&name).is_some() {
-                c.add(dir, LeftoverKind::DataDir, Confidence::Possible, "thư mục cấu hình trong hồ sơ người dùng".into());
+                c.add(dir, LeftoverKind::DataDir, Confidence::Possible, "Configuration folder in the user profile".into());
             }
         }
     }
@@ -466,16 +466,16 @@ fn scan_shortcuts(c: &mut Collector<'_>, roots: &Roots, names: &Names, install: 
                     };
                     match names.classify(&name) {
                         Some(conf) if depth == 0 && only_links => {
-                            c.add(p, LeftoverKind::Shortcut, conf, "thư mục Start Menu của ứng dụng".into());
+                            c.add(p, LeftoverKind::Shortcut, conf, "Application Start Menu folder".into());
                         }
                         None if depth == 0 && only_links && all_ours() => {
-                            c.add(p, LeftoverKind::Shortcut, Confidence::Strong, "thư mục Start Menu chỉ chứa shortcut của app".into());
+                            c.add(p, LeftoverKind::Shortcut, Confidence::Strong, "Start Menu folder contains only shortcuts for this app".into());
                         }
                         _ if depth < 1 => stack.push((p, depth + 1)),
                         _ => {}
                     }
                 } else if is_lnk(&p) && points_into_install(&p) {
-                    c.add(p, LeftoverKind::Shortcut, Confidence::Strong, "shortcut trỏ vào thư mục cài".into());
+                    c.add(p, LeftoverKind::Shortcut, Confidence::Strong, "Shortcut points to the installation folder".into());
                 }
             }
         }
@@ -540,7 +540,7 @@ fn mark_dependencies(items: &mut [Item], commands: &[(DependencyKind, String, St
         }
         item.info.confidence = Confidence::Possible;
         let names: Vec<&str> = hits.iter().map(|(_, n, _)| n.as_str()).take(3).collect();
-        item.info.reason = format!("{} — đang được dùng bởi {} (service/driver/task)", item.info.reason, names.join(", "));
+        item.info.reason = format!("{} — currently used by {} (service/driver/task)", item.info.reason, names.join(", "));
         for (kind, name, command) in hits {
             if !deps.iter().any(|d: &Dependency| d.name == *name && d.kind == *kind) {
                 deps.push(Dependency { kind: *kind, name: name.clone(), command: command.clone() });
@@ -559,7 +559,7 @@ fn scan_app(app: &Installed, key_exists: bool) -> (Vec<Item>, bool, Vec<Dependen
 
     let install = install_dir(app, &names);
     if let Some((dir, conf)) = &install {
-        c.add(dir.clone(), LeftoverKind::InstallDir, *conf, "thư mục cài đặt".into());
+        c.add(dir.clone(), LeftoverKind::InstallDir, *conf, "Installation folder".into());
     }
     scan_data_dirs(&mut c, &roots, &names);
     scan_shortcuts(&mut c, &roots, &names, install.as_ref().map(|(d, _)| d.as_path()));
@@ -579,9 +579,9 @@ fn scan_app(app: &Installed, key_exists: bool) -> (Vec<Item>, bool, Vec<Dependen
                 bytes: None,
                 confidence: if risky { Confidence::Possible } else { Confidence::Strong },
                 reason: if risky {
-                    "mục trong danh sách ứng dụng đã cài — app vẫn còn thành phần đang dùng, chỉ xoá nếu chắc chắn".into()
+                    "Entry in the installed apps list — the app still has components in use; remove only if you are sure.".into()
                 } else {
-                    "mục trong danh sách ứng dụng đã cài (sao lưu .reg trước khi xoá)".into()
+                    "Entry in the installed apps list (a .reg backup is created before removal).".into()
                 },
                 blocked: None,
             },
@@ -632,7 +632,7 @@ impl LeftoverManager {
         let key_exists = current.is_some();
         let app = current
             .or_else(|| self.snapshots.lock_recover().get(app_id).cloned())
-            .ok_or_else(|| AppError::NotFound("ứng dụng không còn trong danh sách".into()))?;
+            .ok_or_else(|| AppError::NotFound("The app is no longer in the list".into()))?;
         let (items, uninstaller_exists, dependencies) = scan_app(&app, key_exists);
         let scan_id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let out = LeftoverScan {
@@ -655,7 +655,7 @@ impl LeftoverManager {
                 Some(s) if s.scan_id == scan_id && s.created.elapsed() < SCAN_TTL => s,
                 other => {
                     *g = other;
-                    return Err(AppError::InvalidInput("kết quả quét đã hết hạn — hãy quét lại".into()));
+                    return Err(AppError::InvalidInput("The scan result has expired — please scan again".into()));
                 }
             }
         };
@@ -690,7 +690,7 @@ impl LeftoverManager {
         if let Some(reg) = selected.iter().find(|i| i.info.kind == LeftoverKind::Registry) {
             step(&reg.info.path);
             let result = if install_failed {
-                Err("giữ lại vì thư mục cài chưa dọn được".to_owned())
+                Err("Kept because the installation folder could not be cleaned".to_owned())
             } else {
                 self.remove_uninstall_key(&stored.app_id, &stored.app_name)
             };
@@ -714,12 +714,12 @@ impl LeftoverManager {
 
     /// Export key ra `.reg` rồi mới xoá. Key phải vẫn là của đúng app đã quét.
     fn remove_uninstall_key(&self, app_id: &str, app_name: &str) -> Result<PathBuf, String> {
-        let current = installed::find(app_id).ok_or("key không còn tồn tại")?;
+        let current = installed::find(app_id).ok_or("Registry key no longer exists")?;
         if current.name != app_name {
-            return Err("key đã thay đổi từ lúc quét".into());
+            return Err("Registry key changed since the scan".into());
         }
-        let (root, path, full) = installed::registry_location(app_id).ok_or("id không hợp lệ")?;
-        std::fs::create_dir_all(&self.backup_dir).map_err(|e| format!("không tạo được thư mục backup: {e}"))?;
+        let (root, path, full) = installed::registry_location(app_id).ok_or("Invalid ID")?;
+        std::fs::create_dir_all(&self.backup_dir).map_err(|e| format!("Could not create the backup folder: {e}"))?;
         let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
         let safe: String = app_id.chars().map(|ch| if ch.is_alphanumeric() || "-_.{}".contains(ch) { ch } else { '_' }).collect();
         let file = self.backup_dir.join(format!("{safe}-{stamp}.reg"));
@@ -731,32 +731,32 @@ impl LeftoverManager {
             .arg("/y")
             .creation_flags(CREATE_NO_WINDOW)
             .status()
-            .map_err(|e| format!("không chạy được reg.exe: {e}"))?;
+            .map_err(|e| format!("Could not run reg.exe: {e}"))?;
         if !status.success() || !file.is_file() {
-            return Err("sao lưu .reg thất bại — không xoá key".into());
+            return Err(".reg backup failed — registry key was not removed".into());
         }
-        root.remove_tree(&path).map_err(|e| format!("không xoá được key: {e}"))?;
+        root.remove_tree(&path).map_err(|e| format!("Could not remove the registry key: {e}"))?;
         Ok(file)
     }
 }
 
 fn recycle_checked(guard: &Guard, item: &Item, path: &Path) -> Result<(), String> {
     if item.info.blocked.is_some() {
-        return Err("mục này không được phép dọn".into());
+        return Err("This item cannot be cleaned".into());
     }
-    let meta = std::fs::symlink_metadata(path).map_err(|_| "không còn tồn tại".to_owned())?;
+    let meta = std::fs::symlink_metadata(path).map_err(|_| "No longer exists".to_owned())?;
     if is_link_or_cloud(&meta) {
-        return Err("là liên kết / file đám mây".into());
+        return Err("Is a link or cloud file".into());
     }
     if let Some(why) = guard.check(path) {
-        return Err(format!("bị chặn: {why}"));
+        return Err(format!("Blocked: {why}"));
     }
     if meta.is_dir() && guard.running_inside(path) {
-        return Err("có chương trình đang chạy từ thư mục này".into());
+        return Err("A running program is using this folder".into());
     }
     crate::user::recycle::move_to_recycle_bin(path)?;
     if path.exists() {
-        return Err("một phần bị khoá, chưa chuyển hết vào Thùng rác".into());
+        return Err("Some items are locked and could not be moved to the Recycle Bin".into());
     }
     Ok(())
 }
@@ -779,7 +779,7 @@ mod tests {
         let n = Names::new("Apache NetBeans IDE 25", Some("NetBeans-25"), Some("Apache Software Foundation"));
         assert_eq!(n.classify("NetBeans"), Some(Confidence::Strong)); // = tên thư mục cài bỏ số phiên bản
         assert_eq!(n.classify("NetBeans-25"), Some(Confidence::Strong));
-        assert_eq!(n.classify("Apache"), None, "từ chung");
+        assert_eq!(n.classify("Apache"), None, "generic term");
         assert_eq!(n.classify("IDE"), None);
         assert_eq!(n.classify("Microsoft"), None);
         assert_eq!(n.publisher, Some("apachesoftwarefoundation".into()));
@@ -791,7 +791,7 @@ mod tests {
         assert_eq!(n.classify("Foxit PDF Reader"), Some(Confidence::Strong));
         assert_eq!(n.classify("Foxit"), Some(Confidence::Possible));
         assert_eq!(n.classify("Reader"), Some(Confidence::Possible));
-        assert_eq!(n.classify("PDF"), None, "quá ngắn");
+        assert_eq!(n.classify("PDF"), None, "too short");
         assert_eq!(n.publisher, Some("foxitsoftwareinc".into()));
     }
 
@@ -828,7 +828,7 @@ mod tests {
             r"D:\Apps\NetBeans",
             r"C:\Program Files\Vendor\ThisApp",
         ] {
-            assert_eq!(g.check(Path::new(p)), None, "phải được phép: {p}");
+            assert_eq!(g.check(Path::new(p)), None, "should be allowed: {p}");
         }
     }
 
@@ -853,7 +853,7 @@ mod tests {
             r"\\server\share\NetBeans",
             r"C:\Program Files\X\..\..\Windows",
         ] {
-            assert!(g.check(Path::new(p)).is_some(), "phải bị chặn: {p}");
+            assert!(g.check(Path::new(p)).is_some(), "should be blocked: {p}");
         }
     }
 
@@ -878,7 +878,7 @@ mod tests {
         c.add(app.clone(), LeftoverKind::InstallDir, Confidence::Strong, "x".into());
         c.add(app.join("cache"), LeftoverKind::DataDir, Confidence::Possible, "x".into());
         c.add(root.join("missing"), LeftoverKind::DataDir, Confidence::Strong, "x".into());
-        assert_eq!(c.items.len(), 1, "mục con bị thay bằng thư mục cha, mục thiếu bị bỏ");
+        assert_eq!(c.items.len(), 1, "child item was replaced by its parent, and missing items were skipped");
         assert_eq!(c.items[0].info.kind, LeftoverKind::InstallDir);
         assert_eq!(c.items[0].info.bytes, Some(5));
         let _ = std::fs::remove_dir_all(&root);
@@ -915,15 +915,15 @@ mod tests {
     /// Chẩn đoán trên máy thật: `cargo test print_leftovers -- --ignored --nocapture`
     /// (đặt PCM_APP=một phần tên app). Chỉ quét, KHÔNG dọn.
     #[test]
-    #[ignore = "chỉ để xem dữ liệu thật"]
+    #[ignore = "prints real machine data only"]
     fn print_leftovers() {
         let q = std::env::var("PCM_APP").unwrap_or_else(|_| "netbeans".into()).to_lowercase();
         let Some(app) = installed::list().into_iter().find(|a| a.name.to_lowercase().contains(&q)) else {
-            println!("không thấy app khớp '{q}'");
+            println!("No matching app found for '{q}'");
             return;
         };
         let (items, unins, deps) = scan_app(&app, true);
-        println!("{} (trình gỡ còn: {unins}) phụ thuộc: {deps:?}", app.name);
+        println!("{} (uninstaller present: {unins}) dependencies: {deps:?}", app.name);
         for i in items {
             println!("{:?} {:?} {:?} {} — {} {:?}", i.info.kind, i.info.confidence, i.info.bytes, i.info.path, i.info.reason, i.info.blocked);
         }

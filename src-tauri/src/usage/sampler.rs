@@ -74,7 +74,7 @@ impl Sampler {
                 due.len()
             }
             Err(e) => {
-                eprintln!("[usage] không ghi được mẫu: {e}");
+                eprintln!("[usage] Could not record usage sample: {e}");
                 0
             }
         }
@@ -101,16 +101,16 @@ mod tests {
         let t0 = 1_000_000_000_000;
         let min = 60_000;
         let due = s.take_due(&v(&["a", "b"]), t0);
-        assert_eq!(due, v(&["a", "b"]), "lần đầu: ghi tất cả");
+        assert_eq!(due, v(&["a", "b"]), "first pass records all executables");
         s.mark(&due, t0);
-        assert!(s.take_due(&v(&["a", "b"]), t0 + min).is_empty(), "không exe mới => không ghi dòng nào");
+        assert!(s.take_due(&v(&["a", "b"]), t0 + min).is_empty(), "no new executables means no rows are written");
         let due = s.take_due(&v(&["a", "b", "c"]), t0 + 2 * min);
-        assert_eq!(due, v(&["c"]), "chỉ exe mới");
+        assert_eq!(due, v(&["c"]), "only the new executable");
         s.mark(&due, t0 + 2 * min);
         // 16 phút sau: a đã quá 15 phút => làm mới; c mới ghi 14 phút trước => chưa; b đã thoát => quên.
         let due = s.take_due(&v(&["a", "c"]), t0 + 16 * min);
         assert_eq!(due, v(&["a"]));
         s.mark(&due, t0 + 16 * min);
-        assert_eq!(s.take_due(&v(&["a", "b", "c"]), t0 + 16 * min + 30_000), v(&["b"]), "b chạy lại = exe mới");
+        assert_eq!(s.take_due(&v(&["a", "b", "c"]), t0 + 16 * min + 30_000), v(&["b"]), "b started again and is treated as a new executable");
     }
 }

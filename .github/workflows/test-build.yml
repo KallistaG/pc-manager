@@ -1,0 +1,59 @@
+name: Windows test build
+
+on:
+  push:
+    branches:
+      - "arena/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-build:
+    name: Build test executable and installer
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Run Rust tests
+        working-directory: src-tauri
+        run: cargo test
+
+      - name: Build Windows app and NSIS installer
+        run: npm run tauri build
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: PC-Manager-test-${{ github.sha }}
+          path: |
+            src-tauri/target/release/pc-manager.exe
+            src-tauri/target/release/bundle/nsis/*_x64-setup.exe
+          if-no-files-found: error
+          retention-days: 14

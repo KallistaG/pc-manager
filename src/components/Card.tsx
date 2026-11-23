@@ -35,8 +35,8 @@ export function Notice({ tone, children, onClose }: { tone: "warn" | "ok" | "err
         <button
           type="button"
           onClick={onClose}
-          title="Đóng thông báo"
-          aria-label="Đóng thông báo"
+          title="Dismiss notification"
+          aria-label="Dismiss notification"
           className="-mr-1 shrink-0 rounded px-1.5 leading-5 opacity-60 hover:bg-black/10 hover:opacity-100 dark:hover:bg-white/10"
         >
           ×

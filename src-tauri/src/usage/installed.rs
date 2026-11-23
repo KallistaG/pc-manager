@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn install_date() {
-        assert_eq!(parse_install_date("19700101"), None, "ngoài khoảng hợp lý");
+        assert_eq!(parse_install_date("19700101"), None, "outside the reasonable range");
         assert_eq!(parse_install_date("20240101"), Some(1_704_067_200_000));
         assert_eq!(parse_install_date("20240229"), Some(1_709_164_800_000));
         assert_eq!(parse_install_date("2024-01-01"), None);

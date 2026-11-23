@@ -12,13 +12,13 @@ where
     T: Send + 'static,
     F: FnOnce(&AppState) -> AppResult<T> + Send + 'static,
 {
-    super::blocking(app, "dọn rác", f).await
+    super::blocking(app, "cleaning junk", f).await
 }
 
 /// Quét theo rule. Tiến độ gửi qua `on_progress` (~10 lần/giây).
 #[tauri::command]
 pub async fn cleaner_scan(app: AppHandle, on_progress: Channel<Progress>) -> AppResult<ScanResult> {
-    jobs::run(app, "cleaner.scan", "dọn rác", Some(on_progress), |s, report| s.cleaner.scan(&|p| report(p))).await
+    jobs::run(app, "cleaner.scan", "cleaning junk", Some(on_progress), |s, report| s.cleaner.scan(&|p| report(p))).await
 }
 
 /// Dọn các rule đã chọn từ lần quét `scan_id`. Chỉ nhận id rule — KHÔNG nhận đường dẫn.
@@ -31,9 +31,9 @@ pub async fn cleaner_clean(
     on_progress: Channel<Progress>,
 ) -> AppResult<CleanReport> {
     if rule_ids.is_empty() || rule_ids.len() > 64 || rule_ids.iter().any(|id| id.is_empty() || id.len() > 64) {
-        return Err(AppError::InvalidInput("danh sách mục cần dọn không hợp lệ".into()));
+        return Err(AppError::InvalidInput("Invalid cleanup item list".into()));
     }
-    jobs::run(app, "cleaner.clean", "dọn rác", Some(on_progress), move |s, report| {
+    jobs::run(app, "cleaner.clean", "cleaning junk", Some(on_progress), move |s, report| {
         s.cleaner.clean(&s.store, scan_id, &rule_ids, dry_run, &|p| report(p))
     })
     .await
@@ -54,17 +54,17 @@ pub async fn system_windows_old_info(app: AppHandle) -> AppResult<WindowsOldInfo
 /// `DISM /AnalyzeComponentStore` — chỉ đọc, ~1 phút, cần quyền admin. Tiến độ % qua `on_progress`.
 #[tauri::command]
 pub async fn system_analyze_winsxs(app: AppHandle, on_progress: Channel<f32>) -> AppResult<WinSxsAnalysis> {
-    jobs::run(app, "winsxs.analyze", "dọn rác", Some(on_progress), |s, report| s.system.analyze_winsxs(&s.store, &|p| report(p))).await
+    jobs::run(app, "winsxs.analyze", "cleaning junk", Some(on_progress), |s, report| s.system.analyze_winsxs(&s.store, &|p| report(p))).await
 }
 
 /// Dọn WinSxS bằng DISM /StartComponentCleanup. Tiến độ % qua `on_progress`.
 #[tauri::command]
 pub async fn system_clean_winsxs(app: AppHandle, on_progress: Channel<f32>) -> AppResult<SystemCleanReport> {
-    jobs::run(app, "winsxs.clean", "dọn rác", Some(on_progress), |s, report| s.system.clean_winsxs(&s.store, &|p| report(p))).await
+    jobs::run(app, "winsxs.clean", "cleaning junk", Some(on_progress), |s, report| s.system.clean_winsxs(&s.store, &|p| report(p))).await
 }
 
 /// Xoá Windows.old bằng Disk Cleanup (mục "Previous Installations"). Tiến độ % (ước lượng) qua `on_progress`.
 #[tauri::command]
 pub async fn system_clean_windows_old(app: AppHandle, on_progress: Channel<f32>) -> AppResult<SystemCleanReport> {
-    jobs::run(app, "winold.clean", "dọn rác", Some(on_progress), |s, report| s.system.clean_windows_old(&s.store, &|p| report(p))).await
+    jobs::run(app, "winold.clean", "cleaning junk", Some(on_progress), |s, report| s.system.clean_windows_old(&s.store, &|p| report(p))).await
 }

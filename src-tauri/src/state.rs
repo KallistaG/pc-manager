@@ -31,7 +31,7 @@ impl AppState {
                 match Store::open(&dir.join("pcmanager.db")) {
                     Ok(s) => Some(s),
                     Err(e) => {
-                        eprintln!("[state] không mở được DB: {e}");
+                        eprintln!("[state] Could not open the database: {e}");
                         None
                     }
                 }
@@ -42,7 +42,7 @@ impl AppState {
             Some(s) => s,
             // SQLite in-memory gần như không thể lỗi; nếu có thì không thể chạy tiếp.
             None => {
-                eprintln!("[state] không khởi tạo được SQLite");
+                eprintln!("[state] Could not initialize SQLite");
                 std::process::exit(1);
             }
         };

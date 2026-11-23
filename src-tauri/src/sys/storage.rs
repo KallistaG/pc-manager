@@ -117,15 +117,15 @@ mod tests {
     fn strings_are_bounded_and_trimmed() {
         let b = b"\0\0\0\0Samsung SSD 990 PRO 2TB   \0rest";
         assert_eq!(str_at(b, 4).as_deref(), Some("Samsung SSD 990 PRO 2TB"));
-        assert_eq!(str_at(b, 0), None, "offset 0 = không có");
-        assert_eq!(str_at(b, 999), None, "ngoài buffer");
+        assert_eq!(str_at(b, 0), None, "offset 0 means no value");
+        assert_eq!(str_at(b, 999), None, "outside the buffer");
         assert_eq!(u32_at(&[1, 0], 0), None);
     }
 
     #[test]
     fn reads_this_machines_disks_without_admin() {
         let disks = physical_disks();
-        assert!(!disks.is_empty(), "máy nào cũng có ít nhất một ổ");
+        assert!(!disks.is_empty(), "every PC should have at least one disk");
         let d = &disks[0];
         assert!(d.size_bytes.is_some_and(|s| s > 1_000_000_000), "{d:?}");
         assert!(d.product.is_some(), "{d:?}");

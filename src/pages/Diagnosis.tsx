@@ -23,19 +23,19 @@ import {
 import { formatBytes } from "../lib/format";
 
 const CATEGORY_LABEL: Record<DiagCategory, string> = {
-  memory: "Bộ nhớ (RAM)",
-  storage: "Ổ đĩa & rác",
-  startup: "Khởi động",
-  apps: "Ứng dụng",
+  memory: "Memory (RAM)",
+  storage: "Disk & junk",
+  startup: "Startup",
+  apps: "Apps",
   windows: "Windows",
-  hardware: "Phần cứng",
+  hardware: "Hardware",
 };
 
 const SEVERITY: Record<DiagSeverity, { label: string; badge: string; icon: ReactNode; rank: number }> = {
-  ok: { label: "Tốt", badge: "bg-green-500/15 text-green-700 dark:text-green-400", icon: <IconCheck />, rank: 0 },
-  info: { label: "Gợi ý", badge: "bg-sky-500/15 text-sky-700 dark:text-sky-300", icon: <IconInfo />, rank: 1 },
-  warn: { label: "Cần chú ý", badge: "bg-amber-500/15 text-amber-700 dark:text-amber-300", icon: <IconWarning />, rank: 2 },
-  critical: { label: "Nên xử lý", badge: "bg-red-500/15 text-red-700 dark:text-red-400", icon: <IconWarning />, rank: 3 },
+  ok: { label: "Good", badge: "bg-green-500/15 text-green-700 dark:text-green-400", icon: <IconCheck />, rank: 0 },
+  info: { label: "Tip", badge: "bg-sky-500/15 text-sky-700 dark:text-sky-300", icon: <IconInfo />, rank: 1 },
+  warn: { label: "Needs attention", badge: "bg-amber-500/15 text-amber-700 dark:text-amber-300", icon: <IconWarning />, rank: 2 },
+  critical: { label: "Action recommended", badge: "bg-red-500/15 text-red-700 dark:text-red-400", icon: <IconWarning />, rank: 3 },
 };
 
 function Badge({ s }: { s: DiagSeverity }) {
@@ -45,10 +45,10 @@ function Badge({ s }: { s: DiagSeverity }) {
 function headline(r: DiagReport): { text: string; tone: string } {
   const issues = r.findings.filter((f) => f.severity === "warn" || f.severity === "critical").length;
   const hints = r.findings.filter((f) => f.severity === "info").length;
-  if (r.findings.some((f) => f.severity === "critical")) return { text: `${issues} vấn đề nên xử lý`, tone: "text-red-600 dark:text-red-400" };
-  if (issues > 0) return { text: `${issues} điểm cần chú ý`, tone: "text-amber-600 dark:text-amber-300" };
-  if (hints > 0) return { text: `Máy ổn · ${hints} gợi ý`, tone: "text-green-600 dark:text-green-400" };
-  return { text: "Máy đang ổn", tone: "text-green-600 dark:text-green-400" };
+  if (r.findings.some((f) => f.severity === "critical")) return { text: `${issues} issue${issues === 1 ? "" : "s"} to address`, tone: "text-red-600 dark:text-red-400" };
+  if (issues > 0) return { text: `${issues} item${issues === 1 ? "" : "s"} need attention`, tone: "text-amber-600 dark:text-amber-300" };
+  if (hints > 0) return { text: `System looks good · ${hints} tip${hints === 1 ? "" : "s"}`, tone: "text-green-600 dark:text-green-400" };
+  return { text: "System looks good", tone: "text-green-600 dark:text-green-400" };
 }
 
 /** Verify: so với lần quét trước — vấn đề nào đã hết hoặc nhẹ đi. */
@@ -59,7 +59,7 @@ function improvements(prev: DiagReport, next: DiagReport): string[] {
     .flatMap((p) => {
       const n = next.findings.find((f) => f.id === p.id && f.title.split(":")[0] === p.title.split(":")[0]) ?? next.findings.find((f) => f.id === p.id);
       if (n && rank(n.severity) >= rank(p.severity)) return [];
-      const change = p.metric && n?.metric && p.metric !== n.metric ? `: ${p.metric} → ${n.metric}` : n ? "" : ": đã hết";
+      const change = p.metric && n?.metric && p.metric !== n.metric ? `: ${p.metric} → ${n.metric}` : n ? "" : ": resolved";
       return [`${p.title}${change}`];
     });
 }
@@ -125,18 +125,18 @@ export default function Diagnosis() {
 
   const boost = (f: DiagFinding) =>
     setConfirm({
-      title: "Boost bộ nhớ?",
+      title: "Boost memory?",
       body: (
         <p>
-          Giải phóng cache ít dùng trong RAM (chế độ nhẹ — giữ cache của app hay dùng). Không đóng app nào, không mất dữ liệu.
-          {f.metric && <span className="mt-1 block text-xs opacity-70">Hiện tại: {f.metric}</span>}
+          Free up low-priority RAM cache (Light mode keeps cache for frequently used apps). No apps will be closed and no data will be lost.
+          {f.metric && <span className="mt-1 block text-xs opacity-70">Current: {f.metric}</span>}
         </p>
       ),
       confirmLabel: "Boost",
       onConfirm: async () => {
         try {
           const r = await api.memoryBoost("light");
-          setMsg(`Đã Boost: RAM trống tăng ${formatBytes(Math.max(0, r.gain.availableGain))}. Đang kiểm tra lại…`);
+          setMsg(`Boost complete: available RAM increased by ${formatBytes(Math.max(0, r.gain.availableGain))}. Rechecking…`);
           await scan(false);
         } catch (e) {
           setError(errorMessage(e));
@@ -157,8 +157,8 @@ export default function Diagnosis() {
 
   return (
     <PageShell
-      title="Chẩn đoán"
-      subtitle="Kiểm tra RAM, ổ đĩa, rác, app khởi động, app lâu không dùng, Windows và phần cứng trong một lần quét."
+      title="Diagnosis"
+      subtitle="Check RAM, disks, junk files, startup apps, unused apps, Windows, and hardware in one scan."
       actions={
         <div className="flex items-center gap-2">
           <Button
@@ -167,19 +167,19 @@ export default function Diagnosis() {
             disabled={running !== null || elevated !== true}
             loading={running === "deep"}
             onClick={() => scan(true)}
-            title={elevated === true ? "Thêm phân tích kho WinSxS bằng DISM (~1 phút)" : "Quét sâu cần quyền Administrator"}
+            title={elevated === true ? "Also analyze the WinSxS store with DISM (~1 minute)" : "Deep scan requires administrator privileges"}
           >
-            Quét sâu
+            Deep scan
           </Button>
           <Button variant="primary" size="sm" loading={running === "quick"} disabled={running !== null} onClick={() => scan(false)}>
-            {report ? "Quét lại" : "Quét máy"}
+            {report ? "Scan again" : "Scan PC"}
           </Button>
         </div>
       }
     >
       {elevated === false && (
         <div className="mb-3">
-          <AdminNotice>Quét sâu (phân tích kho WinSxS bằng DISM) cần quyền Administrator.</AdminNotice>
+          <AdminNotice>Deep scan (WinSxS store analysis with DISM) requires administrator privileges.</AdminNotice>
         </div>
       )}
       {error && (
@@ -199,7 +199,7 @@ export default function Diagnosis() {
       {improved.length > 0 && !running && (
         <div className="mb-3">
           <Notice tone="ok" onClose={() => setPrev(null)}>
-            <b>Đã cải thiện so với lần quét trước:</b>
+            <b>Improved since the previous scan:</b>
             <ul className="mt-1 list-disc pl-5">
               {improved.map((t) => (
                 <li key={t}>{t}</li>
@@ -210,12 +210,12 @@ export default function Diagnosis() {
       )}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
-        <Card title="Tình trạng máy">
+        <Card title="System status">
           {running ? (
             <ProgressBar
               className="py-2"
               pct={pct}
-              label={progress ? `Đang kiểm tra: ${progress.step}` : running === "deep" ? "Đang bắt đầu quét sâu…" : "Đang quét…"}
+              label={progress ? `Checking: ${progress.step}` : running === "deep" ? "Starting deep scan…" : "Scanning…"}
             />
           ) : (
             h && (
@@ -223,8 +223,8 @@ export default function Diagnosis() {
                 <div className={`text-2xl font-semibold ${h.tone}`}>{h.text}</div>
                 {report && scannedAt && (
                   <div className="mt-1 text-xs opacity-60">
-                    {report.deep ? "Quét sâu" : "Quét nhanh"} lúc {new Date(scannedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} ·{" "}
-                    {(report.durationMs / 1000).toFixed(1)} giây · chỉ đọc, không thay đổi gì
+                    {report.deep ? "Deep scan" : "Quick scan"} at {new Date(scannedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })} ·{" "}
+                    {(report.durationMs / 1000).toFixed(1)} seconds · read-only; no changes made
                   </div>
                 )}
               </div>
@@ -249,9 +249,9 @@ export default function Diagnosis() {
           )}
         </Card>
 
-        <Card title={issues.length ? "Đề xuất" : "Đề xuất"}>
-          {!report && !running && <p className="text-sm opacity-60">Bấm "Quét máy" để kiểm tra.</p>}
-          {report && issues.length === 0 && <p className="text-sm opacity-70">Không có gì cần xử lý.</p>}
+        <Card title="Recommendations">
+          {!report && !running && <p className="text-sm opacity-60">Click "Scan PC" to check your system.</p>}
+          {report && issues.length === 0 && <p className="text-sm opacity-70">Nothing needs attention.</p>}
           <div className="grid gap-2">
             {issues.map((f) => (
               <div key={`${f.id}-${f.title}`} className={`flex gap-3 p-3 ${PANEL}`}>
@@ -285,7 +285,7 @@ export default function Diagnosis() {
           </div>
           {issues.some((f) => f.action?.kind === "open") && (
             <p className="mt-3 text-xs opacity-60">
-              Các nút mở đúng trang để bạn xem trước và tự xác nhận như bình thường. Xử lý xong, quay lại bấm "Quét lại" để kiểm tra kết quả.
+              Buttons open the relevant page so you can review and confirm each action as usual. When finished, return and click "Scan again" to verify the results.
             </p>
           )}
         </Card>

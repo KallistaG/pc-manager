@@ -20,7 +20,7 @@ find unused apps, large files and duplicates — in a ~3.8 MB installer that idl
 
 ![PC Manager dashboard](docs/screenshots/dashboard.png)
 
-> The app's interface is currently in Vietnamese. This documentation is available in English and Vietnamese.
+> The app's interface is in English. This documentation is available in English and Vietnamese.
 
 ## Contents
 

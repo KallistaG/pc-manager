@@ -36,12 +36,12 @@ const DUP_MIN = [
 ];
 
 const KIND_LABEL: Record<DriveInfo["kind"], string> = {
-  fixed: "Ổ cứng",
-  removable: "Ổ di động",
-  network: "Ổ mạng",
+  fixed: "Local drive",
+  removable: "Removable drive",
+  network: "Network drive",
   cdRom: "CD/DVD",
   ramDisk: "RAM disk",
-  unknown: "Khác",
+  unknown: "Other",
 };
 
 function DriveCard({ d, selected, onSelect }: { d: DriveInfo; selected: boolean; onSelect: () => void }) {
@@ -72,11 +72,11 @@ function DriveCard({ d, selected, onSelect }: { d: DriveInfo; selected: boolean;
             <div className={`h-full ${bar}`} style={{ width: `${p}%` }} />
           </div>
           <div className="mt-2 text-xs tabular-nums opacity-70">
-            Trống {formatBytes(d.free)} / {formatBytes(d.total)} · đã dùng {p.toFixed(0)}%
+            Free {formatBytes(d.free)} / {formatBytes(d.total)} · {p.toFixed(0)}% used
           </div>
         </>
       ) : (
-        <div className="mt-3 text-xs opacity-60">Không đọc được dung lượng</div>
+        <div className="mt-3 text-xs opacity-60">Could not read drive capacity</div>
       )}
     </button>
   );
@@ -86,11 +86,11 @@ function DriveCard({ d, selected, onSelect }: { d: DriveInfo; selected: boolean;
 const isRisky = (f: FileItem) => !!f.warning || !!f.blocked;
 
 function progressText(p: DiskProgress | null, dup: boolean): string {
-  if (!p) return "Đang bắt đầu…";
-  const step = (n: number) => (dup ? `Bước ${n}/3 — ` : "");
-  if (p.phase === "walk") return `${step(1)}Đang duyệt: ${p.files.toLocaleString("vi-VN")} file · ${formatBytes(p.bytes)}`;
-  const what = p.phase === "head" ? `${step(2)}So 4KB đầu` : `${step(3)}Băm toàn bộ`;
-  return `${what}: ${p.done.toLocaleString("vi-VN")} / ${p.total.toLocaleString("vi-VN")} file nghi trùng`;
+  if (!p) return "Starting…";
+  const step = (n: number) => (dup ? `Step ${n}/3 — ` : "");
+  if (p.phase === "walk") return `${step(1)}Scanning: ${p.files.toLocaleString("en-US")} files · ${formatBytes(p.bytes)}`;
+  const what = p.phase === "head" ? `${step(2)}Comparing first 4 KB` : `${step(3)}Hashing full files`;
+  return `${what}: ${p.done.toLocaleString("en-US")} / ${p.total.toLocaleString("en-US")} possible duplicates`;
 }
 
 /**
@@ -136,7 +136,7 @@ function FileRow({
           <span className="font-medium">{name}</span>
           {status && (
             <span className={`ml-2 text-xs ${status.ok ? "text-green-700 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-              {status.ok ? <IconCheck /> : <IconX />} {status.ok ? "đã vào Thùng rác" : (status.message ?? "lỗi")}
+              {status.ok ? <IconCheck /> : <IconX />} {status.ok ? "Moved to Recycle Bin" : (status.message ?? "Error")}
             </span>
           )}
         </div>
@@ -144,7 +144,7 @@ function FileRow({
         {(f.blocked || f.warning) && (
           <div className={`truncate text-xs ${f.blocked ? "" : "text-amber-700 dark:text-amber-300"}`}>
             {f.blocked ? (
-              `Không thể xoá: ${f.blocked}`
+              `Cannot delete: ${f.blocked}`
             ) : (
               <>
                 <IconWarning /> {f.warning}
@@ -177,7 +177,7 @@ export default function Disk() {
   /** Tiến độ chuyển vào Thùng rác (done/total = số file). */
   const [recycleProgress, setRecycleProgress] = useState<DiskProgress | null>(null);
   useReportBusy(scanning || busy);
-  /** Ẩn file rủi ro (dữ liệu ứng dụng, ổ đĩa ảo, file bị chặn) — mặc định bật. */
+  /** Hide risky files (dữ liệu ứng dụng, ổ đĩa ảo, file bị chặn) — mặc định bật. */
   const [safeOnly, setSafeOnly] = useState(true);
 
   const loadDrives = useCallback(() => {
@@ -302,19 +302,19 @@ export default function Disk() {
 
   const recycle = () =>
     setConfirm({
-      title: `Chuyển ${chosen.length} file vào Thùng rác?`,
+      title: `Move ${chosen.length} file${chosen.length === 1 ? "" : "s"} to the Recycle Bin?`,
       body: (
         <div className="space-y-2">
           <p>
-            {formatBytes(chosenBytes)} sẽ được chuyển vào <b>Thùng rác</b> — bạn có thể khôi phục. Dung lượng chỉ được giải phóng khi
-            làm rỗng Thùng rác.
+            {formatBytes(chosenBytes)} will be moved to the <b>Recycle Bin</b>, where you can restore them. Disk space is freed only when
+            you empty the Recycle Bin.
           </p>
           {chosenWarn > 0 && <p className="text-amber-700 dark:text-amber-300">
-              <IconWarning /> {chosenWarn} file là dữ liệu ứng dụng / ổ đĩa ảo.</p>}
-          <p className="text-xs opacity-70">File quá lớn so với Thùng rác: Windows sẽ hỏi lại trước khi xoá hẳn.</p>
+              <IconWarning /> {chosenWarn} files contain app data or are on virtual drives.</p>}
+          <p className="text-xs opacity-70">Files too large for the Recycle Bin may be permanently deleted after Windows asks for confirmation.</p>
         </div>
       ),
-      confirmLabel: "Chuyển vào Thùng rác",
+      confirmLabel: "Move to Recycle Bin",
       danger: true,
       onConfirm: async () => {
         if (!current) return;
@@ -333,7 +333,7 @@ export default function Disk() {
     });
 
   return (
-    <PageShell title="Ổ đĩa" subtitle="Dung lượng các ổ, file lớn và file trùng lặp — xoá chỉ vào Thùng rác.">
+    <PageShell title="Disks" subtitle="Drive space, large files, and duplicates — deleted files go to the Recycle Bin.">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {drives.map((d) => (
           <DriveCard key={d.root} d={d} selected={root === d.root} onSelect={() => setRoot(d.root)} />
@@ -354,7 +354,7 @@ export default function Disk() {
                 }}
                 className={`${pill(tab === t)} disabled:cursor-not-allowed disabled:opacity-50`}
               >
-                {t === "large" ? "File lớn" : "File trùng"}
+                {t === "large" ? "Large files" : "Duplicates"}
               </button>
             ))}
           </div>
@@ -362,9 +362,9 @@ export default function Disk() {
             value={root}
             onChange={(e) => setRoot(e.target.value)}
             disabled={scanning}
-            placeholder="Thư mục cần quét, vd C:\Users\…"
+            placeholder="Folder to scan, e.g. C:\Users\…"
             className={`min-w-48 flex-1 ${INPUT}`}
-            title="Chọn ổ ở trên hoặc nhập thư mục"
+            title="Select a drive above or enter a folder path"
           />
           <select
             value={tab === "large" ? largeMin : dupMin}
@@ -380,11 +380,11 @@ export default function Disk() {
           </select>
           {scanning ? (
             <Button variant="secondary" size="sm" onClick={() => api.diskCancel()}>
-              Dừng
+              Stop
             </Button>
           ) : (
             <Button size="sm" disabled={!root} onClick={scan}>
-              Quét
+              Scan
             </Button>
           )}
         </div>
@@ -393,9 +393,9 @@ export default function Disk() {
         )}
         {!scanning && current && (
           <div className="mt-3 text-sm opacity-70">
-            Đã quét {current.scannedFiles.toLocaleString("vi-VN")} file trong {(current.durationMs / 1000).toFixed(1)} giây
-            {current.cancelled && " (đã dừng giữa chừng)"}
-            {tab === "dup" && dups && ` · ${dups.groups.length} nhóm trùng · có thể lấy lại ${formatBytes(dups.wastedBytes)}`}
+            Scanned {current.scannedFiles.toLocaleString("en-US")} files in {(current.durationMs / 1000).toFixed(1)} seconds
+            {current.cancelled && " (stopped early)"}
+            {tab === "dup" && dups && ` · ${dups.groups.length} duplicate groups · potentially recoverable: ${formatBytes(dups.wastedBytes)}`}
           </div>
         )}
       </Card>
@@ -413,12 +413,12 @@ export default function Disk() {
               pct={recycleProgress && recycleProgress.total > 0 ? (recycleProgress.done / recycleProgress.total) * 100 : null}
               label={
                 recycleProgress
-                  ? `Đang chuyển vào Thùng rác: ${recycleProgress.done.toLocaleString("vi-VN")} / ${recycleProgress.total.toLocaleString("vi-VN")} file`
-                  : "Đang chuyển vào Thùng rác…"
+                  ? `Moving to Recycle Bin: ${recycleProgress.done.toLocaleString("en-US")} / ${recycleProgress.total.toLocaleString("en-US")} files`
+                  : "Moving to Recycle Bin…"
               }
             />
             <Button variant="secondary" size="sm" onClick={() => api.diskCancel()}>
-              Dừng
+              Stop
             </Button>
           </div>
         </Card>
@@ -426,9 +426,9 @@ export default function Disk() {
       {report && (
         <div className="mt-3">
           <Notice tone={report.failed || report.cancelled ? "warn" : "ok"} onClose={() => setReport(null)}>
-            Đã chuyển {report.recycled} file ({formatBytes(report.recycledBytes)}) vào Thùng rác
-            {report.failed > 0 && `, ${report.failed} file không chuyển được`}
-            {report.cancelled && " (đã dừng giữa chừng)"}. Làm rỗng Thùng rác (trang Dọn rác) để giải phóng dung lượng.
+            Moved {report.recycled} file(s) ({formatBytes(report.recycledBytes)}) to the Recycle Bin
+            {report.failed > 0 && `, ${report.failed} file(s) could not be moved`}
+            {report.cancelled && " (stopped early)"}. Empty the Recycle Bin on the Junk Cleaner page to free up disk space.
           </Notice>
         </div>
       )}
@@ -437,16 +437,16 @@ export default function Disk() {
         <>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
             <span className="opacity-70">
-              Đã chọn {chosen.length} file · {formatBytes(chosenBytes)}
+              Selected {chosen.length} file(s) · {formatBytes(chosenBytes)}
             </span>
             {tab === "dup" && (
-              <Button variant="ghost" size="sm" onClick={autoSelectDups} title="Giữ lại 1 bản mỗi nhóm (ưu tiên bản không nằm trong AppData)">
-                Chọn bản thừa
+              <Button variant="ghost" size="sm" onClick={autoSelectDups} title="Keep one copy per group (prefer copies outside AppData)">
+                Select extra copies
               </Button>
             )}
             <label
               className="flex cursor-pointer items-center gap-2"
-              title="Ẩn file trong AppData, ổ đĩa ảo (vhdx…) và file hệ thống/thư mục cài app để không chọn nhầm"
+              title="Hide AppData files, virtual disks (VHDX…), and system/app installation files to avoid selecting them by mistake"
             >
               <input
                 type="checkbox"
@@ -454,16 +454,16 @@ export default function Disk() {
                 checked={safeOnly}
                 onChange={(e) => setSafeOnly(e.target.checked)}
               />
-              Ẩn file rủi ro
+              Hide risky files
               {safeOnly && hiddenCount > 0 && (
                 <span className="opacity-60">
-                  (đã ẩn {hiddenCount} {tab === "large" ? "file" : "nhóm"})
+                  ({hiddenCount} {tab === "large" ? "files" : "groups"} hidden)
                 </span>
               )}
             </label>
             {chosen.length > 0 && (
               <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
-                Bỏ chọn
+                Clear selection
               </Button>
             )}
             <Button
@@ -474,12 +474,12 @@ export default function Disk() {
               disabled={chosen.length === 0 || groupsAllSelected > 0}
               onClick={recycle}
             >
-              Chuyển vào Thùng rác
+              Move to Recycle Bin
             </Button>
           </div>
           {groupsAllSelected > 0 && (
             <div className="mt-2">
-              <Notice tone="warn">{groupsAllSelected} nhóm đang chọn hết mọi bản — hãy để lại ít nhất 1 bản mỗi nhóm.</Notice>
+              <Notice tone="warn">{groupsAllSelected} groups have every copy selected — leave at least one copy in each group.</Notice>
             </div>
           )}
           <div className={`mt-2 min-h-0 flex-1 overflow-auto ${SURFACE}`}>
@@ -488,8 +488,8 @@ export default function Disk() {
                 <tr>
                   <th className="w-10" />
                   <th className="px-2 py-2 font-medium opacity-70">File</th>
-                  <th className="w-28 px-3 py-2 text-right font-medium opacity-70">Dung lượng</th>
-                  <th className="w-28 px-3 py-2 font-medium opacity-70">Sửa đổi</th>
+                  <th className="w-28 px-3 py-2 text-right font-medium opacity-70">Size</th>
+                  <th className="w-28 px-3 py-2 font-medium opacity-70">Modified</th>
                 </tr>
               </thead>
               {tab === "large" ? (
@@ -500,7 +500,7 @@ export default function Disk() {
                   {visibleLarge.length === 0 && (
                     <tr>
                       <td colSpan={4} className="py-10 text-center opacity-50">
-                        {hiddenCount > 0 ? `Không có file an toàn — đã ẩn ${hiddenCount} file rủi ro` : "Không có file nào đạt ngưỡng"}
+                        {hiddenCount > 0 ? `No safe files found — hidden ${hiddenCount} risky files` : "No files meet the selected threshold"}
                       </td>
                     </tr>
                   )}
@@ -511,7 +511,7 @@ export default function Disk() {
                     <tr className="bg-black/[0.02] text-xs dark:bg-white/[0.03]">
                       <td />
                       <td colSpan={3} className="px-2 py-1 opacity-70">
-                        Nhóm {gi + 1}: {g.files.length} bản × {formatBytes(g.size)} — thừa {formatBytes(g.size * (g.files.length - 1))}
+                        Group {gi + 1}: {g.files.length} copies × {formatBytes(g.size)} — extra space: {formatBytes(g.size * (g.files.length - 1))}
                       </td>
                     </tr>
                     {g.files.map((f) => (
@@ -524,7 +524,7 @@ export default function Disk() {
                 <tbody>
                   <tr>
                     <td colSpan={4} className="py-10 text-center opacity-50">
-                      {hiddenCount > 0 ? `Không có nhóm trùng an toàn — đã ẩn ${hiddenCount} nhóm rủi ro` : "Không tìm thấy file trùng"}
+                      {hiddenCount > 0 ? `No safe duplicate groups found — hidden ${hiddenCount} risky groups` : "No duplicate files found"}
                     </td>
                   </tr>
                 </tbody>

@@ -9,8 +9,8 @@ import { api, errorMessage, type Dependency, type LeftoverKind, type LeftoverPro
 import { formatBytes } from "../lib/format";
 
 const KIND_LABEL: Record<LeftoverKind, string> = {
-  installDir: "Thư mục cài đặt",
-  dataDir: "Dữ liệu / cache",
+  installDir: "Installation folder",
+  dataDir: "Data / cache",
   shortcut: "Shortcut Start Menu",
   registry: "Registry",
 };
@@ -109,23 +109,21 @@ export default function LeftoverDialog({ app, onClose }: { app: LeftoverTarget |
         className={`flex max-h-[85vh] w-full max-w-3xl flex-col p-5 ${DIALOG}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-base font-semibold">Dọn phần còn sót — {app.name}</h2>
+        <h2 className="text-base font-semibold">Clean leftovers — {app.name}</h2>
         <p className="mt-1 text-xs opacity-70">
-          Dùng khi trình gỡ cài đặt lỗi hoặc gỡ xong vẫn còn file. File và thư mục được chuyển vào <b>Thùng rác</b> (khôi phục
-          được); mục registry được sao lưu ra file <code>.reg</code> trước khi xoá.
+          Use this if the uninstaller fails or leaves files behind. Files and folders are moved to the <b>Recycle Bin</b> (so they can be restored); registry entries are backed up to a <code>.reg</code> file before removal.
         </p>
 
         {app.afterUninstall && phase !== "done" && (
           <div className="mt-3">
-            <Notice tone="ok">Trình gỡ cài đặt đã chạy xong. Dưới đây là những gì nó để lại.</Notice>
+            <Notice tone="ok">The uninstaller has finished. Here are the items it left behind.</Notice>
           </div>
         )}
         {scan && scan.dependencies.length > 0 && phase !== "done" && (
           <div className="mt-3">
             <Notice tone="error">
               <span className="block">
-                Ứng dụng vẫn còn {scan.dependencies.length} thành phần hệ thống dùng các thư mục này. Xoá file mà để lại chúng có thể gây
-                lỗi khi khởi động — nên gỡ bằng trình gỡ (hoặc công cụ gỡ chính hãng) trước. Các mục liên quan không được chọn sẵn.
+                There are still {scan.dependencies.length} system components using these folders. Removing files they depend on may cause startup problems — uninstall the app first with its uninstaller (or official removal tool). Related items are not selected by default.
               </span>
               <span className="mt-1 block text-xs">
                 {scan.dependencies.slice(0, 6).map((d) => (
@@ -133,7 +131,7 @@ export default function LeftoverDialog({ app, onClose }: { app: LeftoverTarget |
                     • {DEP_LABEL[d.kind]}: {d.name}
                   </span>
                 ))}
-                {scan.dependencies.length > 6 && <span className="block">… và {scan.dependencies.length - 6} mục khác</span>}
+                {scan.dependencies.length > 6 && <span className="block">… and {scan.dependencies.length - 6} more</span>}
               </span>
             </Notice>
           </div>
@@ -141,8 +139,7 @@ export default function LeftoverDialog({ app, onClose }: { app: LeftoverTarget |
         {scan?.uninstallerExists && !app.afterUninstall && phase === "review" && (
           <div className="mt-3">
             <Notice tone="error">
-              Trình gỡ cài đặt của ứng dụng vẫn còn. Nên thử "Gỡ cài đặt" trước — chỉ dọn ở đây khi trình gỡ báo lỗi (như NetBeans
-              "Missing target component") hoặc đã gỡ xong mà còn sót.
+              The app’s uninstaller is still available. Try "Uninstall" first — use this cleanup only if the uninstaller fails (for example, NetBeans “Missing target component”) or leaves files behind.
             </Notice>
           </div>
         )}
@@ -155,10 +152,10 @@ export default function LeftoverDialog({ app, onClose }: { app: LeftoverTarget |
         <div className={`mt-3 min-h-0 flex-1 overflow-auto ${PANEL}`}>
           {phase === "scan" ? (
             <div className="flex items-center justify-center gap-3 py-12 text-sm opacity-70">
-              <Spinner /> Đang tìm thư mục, shortcut và registry còn sót…
+              <Spinner /> Searching for leftover folders, shortcuts, and registry entries…
             </div>
           ) : scan && scan.items.length === 0 ? (
-            <div className="py-10 text-center text-sm opacity-60">Không tìm thấy phần còn sót nào.</div>
+            <div className="py-10 text-center text-sm opacity-60">No leftovers found.</div>
           ) : (
             <ul className="divide-y divide-black/5 text-sm dark:divide-white/5">
               {scan?.items.map((i) => {
@@ -180,21 +177,21 @@ export default function LeftoverDialog({ app, onClose }: { app: LeftoverTarget |
                         {i.confidence === "possible" && (
                           <span
                             className="rounded bg-amber-100 px-1.5 text-[11px] text-amber-800 dark:bg-amber-500/20 dark:text-amber-200"
-                            title="Chỉ khớp một phần tên — hãy kiểm tra trước khi chọn"
+                            title="Only a partial name match — review before selecting"
                           >
-                            có thể
+                            possible
                           </span>
                         )}
                         {o && (
                           <span className={`text-xs ${o.ok ? "text-green-700 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                            {o.ok ? <IconCheck /> : <IconX />} {o.ok ? "đã dọn" : (o.message ?? "lỗi")}
+                            {o.ok ? <IconCheck /> : <IconX />} {o.ok ? "Cleaned" : (o.message ?? "Error")}
                           </span>
                         )}
                       </div>
                       <div className="break-all font-mono text-xs" title={i.path}>
                         {i.path}
                       </div>
-                      <div className="text-xs opacity-60">{i.blocked ? `Không thể dọn: ${i.blocked}` : i.reason}</div>
+                      <div className="text-xs opacity-60">{i.blocked ? `Cannot clean: ${i.blocked}` : i.reason}</div>
                     </div>
                     <div className="w-20 shrink-0 text-right text-xs tabular-nums opacity-80">{i.bytes != null ? formatBytes(i.bytes) : ""}</div>
                   </li>
@@ -207,9 +204,7 @@ export default function LeftoverDialog({ app, onClose }: { app: LeftoverTarget |
         {phase === "confirm" && (
           <div className="mt-3">
             <Notice tone="error">
-              Chuyển {chosen.filter((i) => i.kind !== "registry").length} mục ({formatBytes(chosenBytes)}) vào Thùng rác
-              {chosenRegistry && " và xoá mục registry (đã sao lưu .reg)"}. Ứng dụng sẽ không chạy được nữa nếu bạn dọn thư mục cài
-              đặt. Tiếp tục?
+              Move {chosen.filter((i) => i.kind !== "registry").length} item(s) ({formatBytes(chosenBytes)}) to the Recycle Bin{chosenRegistry && " and remove registry entries (backed up to .reg)"}. The app will no longer run if you clean its installation folder. Continue?
             </Notice>
           </div>
         )}
@@ -217,16 +212,16 @@ export default function LeftoverDialog({ app, onClose }: { app: LeftoverTarget |
           <ProgressBar
             className="mt-3"
             pct={progress && progress.total > 0 ? (progress.done / progress.total) * 100 : null}
-            label={progress ? `Đang dọn ${progress.done + 1} / ${progress.total}: ${progress.current}` : "Đang dọn…"}
+            label={progress ? `Cleaning ${progress.done + 1} / ${progress.total}: ${progress.current}` : "Cleaning…"}
           />
         )}
         {phase === "done" && report && (
           <div className="mt-3">
             <Notice tone={report.failed ? "error" : "ok"}>
-              Đã chuyển {report.recycled} mục ({formatBytes(report.recycledBytes)}) vào Thùng rác
-              {report.registryRemoved && ", đã xoá mục registry"}
-              {report.failed > 0 && `, ${report.failed} mục lỗi`}.
-              {report.backup && <span className="mt-1 block break-all text-xs opacity-80">Sao lưu registry: {report.backup}</span>}
+              Moved {report.recycled} item(s) ({formatBytes(report.recycledBytes)}) to the Recycle Bin
+              {report.registryRemoved && ", registry entries removed"}
+              {report.failed > 0 && `, ${report.failed} item(s) failed`}.
+              {report.backup && <span className="mt-1 block break-all text-xs opacity-80">Registry backup: {report.backup}</span>}
             </Notice>
           </div>
         )}
@@ -234,27 +229,27 @@ export default function LeftoverDialog({ app, onClose }: { app: LeftoverTarget |
         <div className="mt-4 flex items-center justify-end gap-2">
           {phase === "review" && (
             <span className="mr-auto text-xs opacity-70">
-              Đã chọn {chosen.length} mục · {formatBytes(chosenBytes)}
+              Selected {chosen.length} item(s) · {formatBytes(chosenBytes)}
             </span>
           )}
           {phase === "done" ? (
-            <Button onClick={() => onClose(true)}>Đóng</Button>
+            <Button onClick={() => onClose(true)}>Close</Button>
           ) : phase === "confirm" ? (
             <>
               <Button variant="ghost" onClick={() => setPhase("review")}>
-                Quay lại
+                Back
               </Button>
               <Button variant="danger" onClick={clean}>
-                Xác nhận dọn
+                Confirm cleanup
               </Button>
             </>
           ) : (
             <>
               <Button variant="ghost" disabled={busy} onClick={() => onClose(false)}>
-                Huỷ
+                Cancel
               </Button>
               <Button variant="danger" loading={phase === "clean"} disabled={phase !== "review" || chosen.length === 0} onClick={() => setPhase("confirm")}>
-                Dọn mục đã chọn
+                Clean selected items
               </Button>
             </>
           )}

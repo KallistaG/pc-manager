@@ -208,7 +208,7 @@ mod tests {
         let sig = verify(Path::new(r"C:\Windows\explorer.exe"));
         match sig {
             Signature::Signed { name, .. } => assert!(name.contains("Microsoft"), "{name}"),
-            other => panic!("explorer.exe phải được ký: {other:?}"),
+            other => panic!("explorer.exe should be signed: {other:?}"),
         }
     }
 

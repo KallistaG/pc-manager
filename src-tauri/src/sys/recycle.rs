@@ -39,7 +39,7 @@ pub fn move_to_recycle_bin(path: &Path) -> Result<(), String> {
     // pFrom: danh sách chuỗi kết thúc bằng 2 ký tự NUL.
     let mut from: Vec<u16> = path.as_os_str().encode_wide().collect();
     if from.is_empty() || from.contains(&0) {
-        return Err("đường dẫn không hợp lệ".into());
+        return Err("Invalid path".into());
     }
     from.extend([0, 0]);
     let flags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT | FOF_WANTNUKEWARNING;
@@ -53,10 +53,10 @@ pub fn move_to_recycle_bin(path: &Path) -> Result<(), String> {
     // với FO_DELETE; hNameMappings null vì không bật FOF_WANTMAPPINGHANDLE.
     let code = unsafe { SHFileOperationW(&mut op) };
     if code != 0 {
-        return Err(format!("SHFileOperation lỗi 0x{code:X}"));
+        return Err(format!("SHFileOperation failed with error 0x{code:X}"));
     }
     if op.fAnyOperationsAborted.as_bool() {
-        return Err("thao tác bị huỷ".into());
+        return Err("Operation was cancelled".into());
     }
     Ok(())
 }
@@ -70,7 +70,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "tạo một mục nhỏ trong Thùng rác thật"]
+    #[ignore = "creates a small item in the real Recycle Bin"]
     fn moves_a_temp_dir_to_recycle_bin() {
         let dir = std::env::temp_dir().join(format!("pcm-recycle-test-{}", std::process::id()));
         std::fs::create_dir_all(dir.join("sub")).unwrap();

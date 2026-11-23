@@ -11,7 +11,7 @@ where
     T: Send + 'static,
     F: FnOnce(&AppState) -> AppResult<T> + Send + 'static,
 {
-    super::blocking(app, "xử lý tiến trình", f).await
+    super::blocking(app, "managing processes", f).await
 }
 
 #[tauri::command]

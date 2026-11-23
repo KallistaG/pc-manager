@@ -50,7 +50,7 @@ pub struct Counters {
 pub fn expand_roots(template: &str, env: &dyn Fn(&str) -> Option<String>) -> Vec<PathBuf> {
     let expanded = crate::startup::command::expand_env(template, env);
     if expanded.contains('%') {
-        return Vec::new(); // biến môi trường không tồn tại
+        return Vec::new(); // environment variable does not exist
     }
     let mut segs = expanded.split('\\').filter(|s| !s.is_empty());
     let Some(drive) = segs.next().filter(|d| d.len() == 2 && d.ends_with(':')) else { return Vec::new() };
@@ -153,24 +153,24 @@ fn recheck(f: &Found, rule: &Rule, roots: &[PathBuf], bans: &BanList, now: Syste
     // Phải nằm bên trong (không phải chính) một thư mục gốc của rule.
     let inside = roots.iter().any(|r| f.path.starts_with(r) && f.path != *r);
     if !inside {
-        return Some("ngoài phạm vi rule");
+        return Some("outside the rule scope");
     }
     if bans.check(&f.path).is_some() {
-        return Some("bị cấm");
+        return Some("blocked by a safety rule");
     }
     let name = f.path.file_name()?.to_string_lossy();
     if !rule.file_matches(&name) {
-        return Some("không khớp rule");
+        return Some("does not match the rule");
     }
     let meta = fs::symlink_metadata(&f.path).ok()?;
     if safety::is_link_or_cloud(&meta) || !meta.is_file() {
-        return Some("đã thành link");
+        return Some("became a link");
     }
     if meta.len() != f.size || meta.modified().ok() != f.modified {
-        return Some("đã thay đổi");
+        return Some("changed since the scan");
     }
     if !safety::old_enough(&meta, now, rule.min_age_hours) {
-        return Some("còn quá mới");
+        return Some("is too new");
     }
     // Các thư mục cha cũng không được là link (ai đó thay thư mục bằng junction).
     let mut p = f.path.parent();
@@ -179,7 +179,7 @@ fn recheck(f: &Found, rule: &Rule, roots: &[PathBuf], bans: &BanList, now: Syste
             break;
         }
         if fs::symlink_metadata(dir).map_or(true, |m| safety::is_link_or_cloud(&m)) {
-            return Some("thư mục cha là link");
+            return Some("parent folder is a link");
         }
         p = dir.parent();
     }

@@ -1,228 +1,266 @@
-# Nhật ký thay đổi
+# Changelog
 
-Mỗi bản phát hành có một mục `## [x.y.z]`. CI lấy đúng mục của phiên bản được tag để làm phần
-"Có gì mới" trên trang Release (thiếu mục => không phát hành).
+Each release must have a `## [x.y.z]` section. CI uses the section for the tagged version as the
+"What's New" text on the Release page; without it, the release is not published.
 
 ## [1.2.1] - 2026-11-12
 
-### Thay đổi
-- Bản phát hành để kiểm tra chức năng tự cập nhật từ 1.2.0 (không đổi chức năng). Từ 1.2.0 trở đi, PC Manager tự báo khi
-  có bản mới; bấm "Cập nhật" trong Cài đặt để cài.
+### Changed
+- Release to test the in-app updater introduced in 1.2.0; no functional changes. Starting with 1.2.0,
+  PC Manager notifies you when an update is available. Click "Update" in Settings to install it.
 
 ## [1.2.0] - 2026-11-12
 
-### Mới
-- **Tự cập nhật trong app.** Có bản mới trên GitHub Release => dải thông báo ở đầu cửa sổ và thẻ "Cập nhật" trong Cài đặt
-  (kèm "Có gì mới"). Bấm "Cập nhật" => tải bộ cài, **kiểm chữ ký** (khoá riêng chỉ nằm trong secret của CI), Windows hỏi UAC,
-  cài xong app tự mở lại. Không bao giờ tự cài; tự kiểm tra tối đa 1 lần/ngày khi mở cửa sổ (tắt được trong Cài đặt), chỉ gửi
-  một yêu cầu tới github.com. Cập nhật giữ nguyên tuỳ chọn "Khởi động cùng Windows" (trước đây cài đè sẽ xoá task này).
+### Added
+- **In-app updates.** When a new version is available on GitHub Releases, a banner appears at the top
+  of the window and an "Update" card appears in Settings (with release notes). Click "Update" to
+  download the installer, **verify its signature** (the private key is only stored in a CI secret),
+  approve the UAC prompt, and install. Updates are never installed automatically. Automatic checks
+  run at most once a day when the window opens (you can turn them off in Settings); only one request
+  is sent to github.com. Updating preserves the "Start with Windows" setting (previously, installing
+  over an existing version removed its scheduled task).
 
-### Bảo mật
-- **Gỡ app cài riêng cho người dùng (HKCU) không còn chạy bằng quyền Administrator.** Khi PC Manager đang
-  chạy quyền admin, trình gỡ của các app này giờ luôn chạy dưới tài khoản đang đăng nhập với quyền thường
-  (như Windows Settings). Lệnh gỡ trong HKCU sửa được bởi mọi chương trình quyền thường, nên chạy nó bằng
-  quyền admin là đường leo thang đặc quyền. Trình gỡ nào tự đòi quyền admin => PC Manager báo lỗi và hướng
-  dẫn gỡ từ quyền thường (Windows sẽ hỏi UAC), không bao giờ tự dùng quyền admin của mình.
+### Security
+- **Per-user apps (HKCU) are no longer uninstalled with administrator privileges.** When PC Manager
+  is running as an administrator, their uninstallers now always run as the signed-in user with
+  standard privileges, just like Windows Settings. Any standard-privilege program can modify an
+  HKCU uninstall command, so running it as an administrator could enable privilege escalation. If
+  an uninstaller requests administrator privileges, PC Manager reports the problem and explains how
+  to uninstall it without elevation (Windows will show a UAC prompt); it will never fall back to its
+  own administrator token.
 
-### Sửa lỗi
-- Dọn rác tự động không còn thay kết quả quét bạn đang xem ở trang Dọn rác (trước đây bấm Dọn sau đó sẽ báo
-  "kết quả quét đã cũ").
-- **Smart Boost (bấm tay và tự động) dùng Boost nhẹ** thay vì Boost sâu. Khi RAM thấp, xoá toàn bộ cache
-  standby không làm tăng RAM khả dụng (Windows vốn nhường cache đó ngay khi app cần) mà chỉ làm máy đọc đĩa
-  nhiều hơn; lợi ích thật đến từ việc ghi dữ liệu chờ (modified) xuống đĩa. Sửa lại mô tả thẻ Smart Boost.
-  Đo trên máy thật (3 lần): Boost nhẹ tăng RAM khả dụng +4…+215 MB, chỉ xoá 57–585 MB cache; Boost sâu chỉ tăng
-  +54…+93 MB nhưng xoá 3,8–4,4 GB cache.
-- Chẩn đoán: khi RAM còn dưới 10%, hành động đề xuất là "Mở Tiến trình" để đóng bớt app nặng (Boost chỉ giúp
-  chút ít); mô tả khi RAM 10–20% nói đúng việc Boost làm.
-- Dọn rác tự động kiểm tra lịch lần đầu sau ~2 phút kể từ khi mở PC Manager (trước đây 30 phút — phiên dùng
-  máy ngắn thì không bao giờ dọn).
+### Fixed
+- Automatic cleanup no longer replaces the scan results currently open on the Junk Cleaner page
+  (previously, clicking Clean afterward would report that the scan result had expired).
+- **Manual and automatic Smart Boost now use light Boost** instead of Deep Boost. When RAM is low,
+  clearing the entire standby cache does not increase available RAM (Windows already reclaims that
+  cache as apps need it); it only causes more disk reads. The real benefit comes from flushing
+  modified data to disk. The Smart Boost card description has been corrected. Measurements on a
+  real PC (three runs): light Boost increased available RAM by 4–215 MB while clearing only
+  57–585 MB of cache; Deep Boost increased it by just 54–93 MB while clearing 3.8–4.4 GB of cache.
+- Diagnosis now recommends opening Processes to close memory-heavy apps when RAM is below 10%
+  (Boost helps only a little); the description for 10–20% RAM usage now accurately describes Boost.
+- The first automatic-cleanup schedule check now runs about two minutes after PC Manager opens
+  (previously it waited 30 minutes, so short PC sessions never got cleaned up).
 
-### Thay đổi
-- **Tác vụ dài có tiến độ và nối lại được** khi đóng cửa sổ (xuống tray) rồi mở lại: chuyển file vào Thùng rác
-  ở trang Ổ đĩa (có nút Dừng), dọn phần còn sót sau khi gỡ app, tải danh sách ứng dụng.
-- Thanh tiến độ Dọn rác chạy theo số file đã dọn, không đứng yên trong một mục có hàng chục nghìn file.
-- Quét file lớn / file trùng có ngưỡng tối thiểu ở backend (1 MB / 64 KB) để không giữ danh sách quá lớn trong RAM.
-- **Trang Khởi động hiện cả app Microsoft Store** tự chạy khi đăng nhập (Teams, Terminal, Xbox…, chỉ xem — như tab
-  Startup của Task Manager); dịch vụ hiện đúng tên hiển thị thay vì tên key (`@dll,-123`); shortcut `.Lnk` hoa thường
-  lẫn lộn được cắt đuôi đúng. Mục app Store có nút "Mở Task Manager" mở thẳng tab Startup để bật/tắt
-  (không dùng Settings → Apps → Startup vì trang đó crash trên một số bản Windows 11).
-- **Trang Ứng dụng liệt kê cả app Microsoft Store** (đọc từ registry + manifest, không nạp WinRT nên không tốn thêm
-  RAM lúc rảnh); nút "Gỡ trong Settings" mở Windows Settings → Apps.
-- Dọn rác: thêm cache trình duyệt Brave, Vivaldi, Cốc Cốc, Opera / Opera GX; Chrome/Edge thêm `Service Worker\CacheStorage`,
-  `ShaderCache`, `GrShaderCache`; Firefox thêm `startupCache`. Không đụng dữ liệu trang web (IndexedDB, Local Storage).
-- "Bản cập nhật Windows đã tải": mô tả đúng hơn (có cả bản đang chờ cài, Windows sẽ tải lại) và không còn được chọn sẵn.
-- Chẩn đoán: gợi ý "Bật XMP/EXPO" chỉ hiện với RAM rời của máy bàn (DIMM), không còn báo sai trên laptop.
-- Bật/tắt mục khởi động của máy khi thiếu quyền: thông báo có nút "Chạy với quyền Administrator", không phụ thuộc ngôn
-  ngữ của Windows.
-- Thanh trượt ngưỡng Smart Boost chỉ lưu (và ghi nhật ký) khi giá trị thật sự đổi.
-- Giao diện: trang Tiến trình và Khởi động dùng khung trang chung (tiêu đề to lên ở màn lớn như các trang khác); emoji/ký tự
-  (🔒 🛡 ✓ ↻ ▸▾ ⚠) thay bằng biểu tượng SVG tự vẽ, hiển thị giống nhau trên mọi máy.
+### Changed
+- **Long-running tasks now report progress and can resume** after the window is closed to the tray
+  and reopened: moving files to the Recycle Bin on the Disks page (with a Stop button), cleaning app
+  leftovers, and loading the app list.
+- The Junk Cleaner progress bar now tracks files cleaned instead of appearing idle while processing
+  a rule that contains tens of thousands of files.
+- Large-file and duplicate scans now enforce minimum file sizes in the backend (1 MB / 64 KB) to
+  avoid keeping excessively large file lists in memory.
+- **The Startup page now lists Microsoft Store apps** that launch at sign-in (Teams, Terminal, Xbox,
+  and others; read-only, like Task Manager's Startup tab). Services now display their proper names
+  instead of registry value names such as `@dll,-123`; `.lnk` extensions are now removed correctly
+  regardless of letter case. Store apps have an "Open Task Manager" button that opens the Startup
+  tab to enable or disable them (the Settings → Apps → Startup page crashes on some Windows 11
+  versions).
+- **The Apps page now lists Microsoft Store apps** (read from the registry and manifests without
+  loading WinRT or increasing idle memory use). The "Uninstall in Settings" button opens Windows
+  Settings → Apps.
+- Junk Cleaner adds browser caches for Brave, Vivaldi, Coc Coc, and Opera / Opera GX. Chrome and Edge
+  now include `Service Worker\\CacheStorage`, `ShaderCache`, and `GrShaderCache`; Firefox now includes
+  `startupCache`. Website data (IndexedDB and Local Storage) is not touched.
+- The description for "Downloaded Windows updates" is more accurate (it includes updates waiting to
+  be installed, which Windows will download again) and the rule is no longer selected by default.
+- Diagnosis recommends enabling XMP/EXPO only for desktop PCs with DIMM memory, no longer
+  incorrectly suggesting it on laptops.
+- When you lack privileges to enable or disable a system-wide startup entry, the notice now includes
+  a "Run as administrator" button and no longer depends on the Windows display language.
+- The Smart Boost threshold slider now saves (and logs) only when its value actually changes.
+- The Processes and Startup pages now use the shared page layout. Hand-coded SVG icons replace
+  emoji and font-dependent symbols (🔒 🛡 ✓ ↻ ▸▾ ⚠), so they look consistent across PCs.
 
-### Hiệu năng
-- Số liệu RAM chỉ được hỏi khi đang mở Tổng quan hoặc Bộ nhớ (trước đây 2 giây/lần ở mọi trang); trang ẩn không còn vẽ lại
-  biểu đồ. Đo ở bản dev: trang Cài đặt 0 lần `memory_status` trong 6,5 giây (trước: ~3 lần).
-- Bảng Tiến trình chỉ vẽ lại các dòng có số liệu thay đổi (trước: dựng lại cả 300+ dòng mỗi 2 giây).
-- Lấy mẫu "lần dùng cuối" ghi SQLite ít hơn hẳn: exe mới ghi ngay, exe đang chạy làm mới tối đa 15 phút/lần
-  (trước: 150–300 lệnh ghi mỗi phút).
-- Quét rác kiểm tra danh sách cấm theo thư mục (một lần cho cả thư mục) và hạ chữ thường mẫu lọc một lần lúc nạp rule;
-  bước kiểm tra lại trước khi xoá vẫn từng file.
-- Mở trang Cài đặt không còn chạy `schtasks.exe` (đọc trạng thái khởi động cùng Windows qua COM).
-- Cơ sở dữ liệu không lớn dần mãi: giữ 5.000 dòng nhật ký mới nhất, bỏ mẫu "lần dùng cuối" của exe không thấy chạy hơn 1 năm.
+### Performance
+- RAM statistics are queried only while Overview or Memory is open (previously, every two seconds
+  on every page); hidden pages no longer redraw the chart. In a dev build, Settings made zero
+  `memory_status` calls over 6.5 seconds (previously about three).
+- The Processes table now redraws only rows whose data changed (previously, all 300+ rows were
+  rebuilt every two seconds).
+- The "last used" sampler now writes to SQLite much less often: newly seen executables are recorded
+  immediately, and running executables are refreshed at most once every 15 minutes (previously,
+  150–300 writes per minute).
+- Junk scans now check the blocked-path list once per directory and lowercase filename patterns
+  once when loading a rule; the safety recheck before deletion still runs for every file.
+- Opening Settings no longer launches `schtasks.exe`; startup status is read through COM.
+- The database no longer grows indefinitely: it keeps the newest 5,000 activity-log entries and
+  removes "last used" samples for executables not seen for over a year.
 
-### Nội bộ
-- Build release chỉ tạo `rlib` cho thư viện (bỏ `staticlib`/`cdylib` chỉ cần cho mobile): build lại crate bản release
-  ~194 giây → ~160 giây (nhanh hơn ~17%, đo 2 lần, dependency đã build sẵn).
-- `scripts/admin-test.ps1` chạy được khi nâng quyền bằng tài khoản admin khác (truyền `CARGO_HOME`/`RUSTUP_HOME` của
-  người đang đăng nhập); các test phụ thuộc môi trường dùng `%TEMP%`/biến của user đang đăng nhập.
-- Gộp mã lặp (`commands::blocking`, `now_ms`, `expand_env`, `run_elevated`); skill `rust-skills` rút gọn cho dự án
-  (265 → 129 quy tắc); `CLAUDE.md` gọn lại (chi tiết API ở `docs/FEATURES.md`, mốc đo ở `docs/PERF.md`); thêm
-  `AGENTS.md`; `PROMPTS.md` chuyển vào `docs/history/`; bỏ README tiếng Nhật và tiếng Trung.
+### Internal
+- Release builds now produce only an `rlib` for the library (no mobile-only `staticlib` or `cdylib`):
+  rebuilding the release crate dropped from about 194 to 160 seconds (about 17% faster, measured
+  twice with dependencies already built).
+- `scripts/admin-test.ps1` now works when elevated with a different administrator account (it passes
+  the signed-in user's `CARGO_HOME` / `RUSTUP_HOME`); tests that depend on environment variables now
+  use the signed-in user's `%TEMP%` and other user-specific values.
+- Consolidated repeated code (`commands::blocking`, `now_ms`, `expand_env`, `run_elevated`); trimmed
+  the `rust-skills` guidance for this project (265 → 129 rules); shortened `CLAUDE.md` (API details
+  are in `docs/FEATURES.md`, measurement baselines in `docs/PERF.md`); added `AGENTS.md`; moved
+  `PROMPTS.md` to `docs/history/`; removed the Japanese and Chinese READMEs.
 
 ## [1.1.3] - 2026-11-12
 
-### Sửa lỗi
-- **Dọn rác tự động không còn bị bỏ cả kỳ** khi tới hạn đúng lúc bạn đang tự quét/dọn ở trang Dọn rác:
-  trước đây phải chờ thêm 1/7/30 ngày, giờ PC Manager thử lại sau 30 phút.
-- Xoá Windows.old xong không còn đo lại cả cây thư mục (hàng chục GB) chỉ để kiểm tra đã xoá chưa —
-  kết quả hiện ngay.
-- Thông báo lỗi khi mở trình gỡ cài đặt gặp sự cố nói đúng thao tác ("mở trình gỡ cài đặt").
+### Fixed
+- **Automatic cleanup no longer skips an entire scheduled run** when it becomes due while you are
+  scanning or cleaning manually on the Junk Cleaner page. Previously it would wait another 1, 7, or
+  30 days; now PC Manager retries after 30 minutes.
+- Cleaning `Windows.old` no longer rescans the entire directory tree (which can contain tens of GB)
+  just to confirm it was removed; the result appears immediately.
+- The error shown when opening an uninstaller fails now correctly describes the action ("opening the
+  uninstaller").
 
-### Thay đổi
-- Liệt kê tiến trình nhẹ hơn: không còn chép lại 0,5–1 MB dữ liệu mỗi lần làm mới (2 giây/lần ở trang
-  Tiến trình, 60 giây/lần khi chạy nền).
-- Quét rác nhanh hơn với các quy tắc "mọi file" (không tạo dữ liệu tạm cho từng file).
-- "Mở vị trí file" ở trang Tiến trình luôn mở đúng `explorer.exe` của Windows (đường dẫn tuyệt đối),
-  kể cả khi PC Manager chạy với quyền Administrator.
-- Dọn mã nội bộ theo bản rà soát toàn dự án 2026-11-11 (không đổi hành vi). Kế hoạch cải tiến tiếp
-  theo: `docs/PLAN.md`.
+### Changed
+- Process enumeration is lighter: it no longer copies 0.5–1 MB of data on every refresh (every two
+  seconds on the Processes page and every 60 seconds in the background).
+- Junk scans are faster for "all files" rules (no temporary per-file data is created).
+- "Open file location" on the Processes page now always opens the correct absolute path to
+  Windows `explorer.exe`, even when PC Manager is running as an administrator.
+- Internal cleanup based on the full-project review of 2026-11-11 (no behavior changes). Next
+  improvement plan: `docs/PLAN.md`.
 
 ## [1.1.2] - 2026-11-11
 
-### Sửa lỗi
-- **Chẩn đoán không còn đề xuất "Kho WinSxS nên được dọn" khi dọn chẳng được gì.** Trước đây quét sâu
-  cứ làm theo câu "nên dọn" của DISM — câu này hay báo "Có" mãi, kể cả khi bấm Dọn WinSxS chỉ được
-  0 byte. Giờ PC Manager nhớ kết quả các lần phân tích/dọn và tự đánh giá:
-  - Dọn mà không lấy lại được gì => các gói còn lại là phần Windows đang giữ; không đề xuất nữa cho
-    tới khi có bản cập nhật Windows mới (hoặc sau 30 ngày).
-  - Vừa dọn từ lần khởi động gần nhất => phần còn lại chỉ dọn được sau khi khởi động lại máy.
-  - **Windows đang chờ khởi động lại để hoàn tất cập nhật** => không đề xuất dọn WinSxS (lúc này DISM
-    gần như không gỡ được gì), chỉ đề xuất Restart. Lần dọn lỡ bấm trong lúc này không bị tính là
-    "dọn vô ích", sau khi Restart vẫn được đề xuất lại nếu còn cần.
-- Dọn rác → Dọn sâu hệ thống → **Phân tích** WinSxS hiện kết luận rõ ràng ("Nên dọn" / "Chưa cần dọn" /
-  "Khởi động lại máy trước") kèm lý do; thông báo sau khi dọn được 0 byte nói đúng nguyên nhân.
+### Fixed
+- **Diagnosis no longer recommends cleaning the WinSxS store when cleanup cannot free any space.**
+  Deep scans previously followed DISM's "recommended" message, which can continue to say Yes even
+  when clicking Clean WinSxS frees 0 bytes. PC Manager now remembers analysis and cleanup results
+  and evaluates them itself:
+  - If cleanup frees nothing, the remaining packages are being retained by Windows; no further
+    recommendation is shown until a new Windows update is available (or 30 days have passed).
+  - If cleanup has already run since the latest restart, the remaining components can only be
+    cleaned after restarting the PC.
+  - **If Windows is waiting for a restart to finish an update,** WinSxS cleanup is not recommended
+    (DISM can remove almost nothing at this point); only a restart is recommended. A cleanup attempt
+    made while a restart is pending is not counted as "futile"; after restarting, cleanup can be
+    recommended again if needed.
+- Junk Cleaner → System Deep Clean → **Analyze** now gives a clear result ("Cleanup recommended",
+  "No cleanup needed", or "Restart first") with an explanation. The message after a cleanup that
+  frees 0 bytes now explains the reason.
 
-### Thay đổi
-- Trang Chẩn đoán khi PC Manager chạy quyền thường hiện thông báo "Quét sâu cần quyền Administrator"
-  kèm nút **Chạy với quyền Administrator** (giống các trang khác), mở lại thẳng trang Chẩn đoán.
+### Changed
+- The Diagnosis page now shows a "Deep scan requires administrator privileges" notice with a
+  **Run as administrator** button when PC Manager is running without elevation, just like other
+  pages; it reopens directly to Diagnosis.
 
 ## [1.1.1] - 2026-11-11
 
-### Thay đổi
-- **Mọi trang đồng bộ giao diện mới**: Bộ nhớ, Dọn rác, Tiến trình, Khởi động, Ứng dụng, Ổ đĩa, Cài
-  đặt cùng kiểu với Tổng quan / Cấu hình máy / Chẩn đoán — bảng bo góc viền mảnh, tiêu đề bảng dính
-  nền đặc khi cuộn, ô tìm kiếm và ô chọn cùng một kiểu, nút lọc dạng viên, hộp thoại xác nhận nền và
-  viền mới. Thanh tiến độ của Dọn rác dùng chung kiểu với các trang khác.
-- Đã kiểm tra bố cục tự động ở 4 kích thước cửa sổ (từ nhỏ nhất 860×560 tới 1920×1080) × mọi trang ×
-  cả theme tối và sáng: không cuộn ngang, không tràn, không nút nào đè lên nhau hay bị cắt chữ.
+### Changed
+- **All pages now use the new shared UI:** Memory, Junk Cleaner, Processes, Startup, Apps, Disks, and
+  Settings match Overview, System Info, and Diagnosis — rounded tables with fine borders, sticky
+  table headers with solid backgrounds, consistent search and select fields, pill-shaped filter
+  buttons, and updated confirmation dialogs. The Junk Cleaner progress bar now matches the other
+  pages.
+- Automated layout checks passed at four window sizes (from the 860×560 minimum to 1920×1080), on
+  every page and in both dark and light themes: no horizontal scrolling, overflow, overlapping
+  buttons, or clipped text.
 
 ## [1.1.0] - 2026-11-11
 
-### Mới
-- **Giao diện tối mới** (mặc định): nền tối có ánh xanh, card bo góc, thanh bên có biểu tượng, đồng
-  hồ RAM dạng vòng cung ở Tổng quan. Đổi Tối / Sáng / Theo Windows ở Cài đặt → Giao diện. Không
-  dùng hiệu ứng kính mờ hay animation nên không làm app nặng thêm.
-- **Trang "Cấu hình máy"**: Windows (bản, build, ngày cài, thời gian chạy liên tục), CPU (nhân/luồng,
-  xung), card đồ hoạ (VRAM, driver), mainboard & BIOS, RAM (số khe đã cắm/tổng, từng thanh: dung
-  lượng, DDR4/DDR5, tốc độ thực tế và tốc độ thanh hỗ trợ, hãng, mã), ổ đĩa (model, dung lượng,
-  NVMe/SATA/USB, SSD/HDD). Nút **Sao chép cấu hình** để dán gửi người khác. Không cần quyền admin,
-  không thu thập số serial hay tên máy. "Bật máy gần nhất" lấy đúng lần bật nguồn (kể cả khi Fast
-  Startup bật), không phải thời gian từ lần Restart.
-- **Chẩn đoán thông minh** (trang "Chẩn đoán", hoặc nút ở Tổng quan): một lần quét kiểm tra RAM, ổ
-  đĩa, rác, Thùng rác, app khởi động, app lâu không dùng, Windows (chờ khởi động lại, lâu chưa
-  Restart, Windows.old) và phần cứng (RAM chưa bật XMP/EXPO, ổ HDD, khe RAM trống). Mỗi nhóm có trạng
-  thái Tốt / Gợi ý / Cần chú ý / Nên xử lý; mỗi vấn đề có lý do kèm số liệu và nút xử lý (mở đúng
-  trang để xem trước & xác nhận; Boost chạy sau hộp xác nhận). Quét lại sẽ hiện **đã cải thiện gì**
-  (số liệu trước → sau). Quét nhanh chỉ đọc, dưới 1 giây; "Quét sâu" thêm phân tích WinSxS (~1 phút,
-  cần quyền Administrator).
+### Added
+- **New dark theme** (default): dark background with blue highlights, rounded cards, a sidebar with
+  icons, and an arc-shaped RAM gauge on Overview. Choose Dark, Light, or Follow Windows in Settings
+  → Appearance. No blur or animation is used, so the app stays lightweight.
+- **System Info page:** Windows edition, build, install date and uptime; CPU (cores/threads and
+  frequency); GPU (VRAM and driver); motherboard and BIOS; RAM (installed/total slots, each module's
+  capacity, DDR4/DDR5 type, current and rated speeds, manufacturer and part number); and disks
+  (model, capacity, NVMe/SATA/USB, SSD/HDD). Click **Copy system info** to share the configuration.
+  No administrator privileges are required, and no serial numbers or machine name are collected.
+  "Last power-on" reports the actual latest power-on time (including with Fast Startup enabled),
+  not the time since the last restart.
+- **Smart Diagnosis** (Diagnosis page or the Overview button): one scan checks RAM, drives, junk,
+  Recycle Bin, startup apps, unused apps, Windows status (pending restart, time since restart,
+  `Windows.old`), and hardware (XMP/EXPO, hard drives, free RAM slots). Each category has a status
+  (Good / Suggestion / Needs attention / Recommended action); each finding explains why with
+  supporting numbers and a button that opens the relevant page for review and confirmation. Boost
+  runs only after confirmation. Rescan to see **what improved** (before-and-after numbers). Quick
+  scan is read-only and takes under one second; Deep scan also analyzes WinSxS (about one minute,
+  requires administrator privileges).
 
-### Thay đổi
-- Trang Cài đặt sắp lại: card cùng hàng cao bằng nhau.
+### Changed
+- Settings cards in the same row now have equal heights.
 
 ## [1.0.4] - 2026-11-11
 
-### Mới
-- **Hiện % cho các tác vụ lâu** bằng một thanh tiến độ thống nhất:
-  - Phân tích WinSxS (trước chỉ có biểu tượng xoay).
-  - Xoá Windows.old — % ước lượng theo dung lượng đã lấy lại (Disk Cleanup không báo tiến độ).
-  - Quét file lớn / file trùng — khi quét cả ổ, % của bước duyệt ước lượng theo dung lượng đã dùng
-    của ổ; quét file trùng hiện rõ "Bước 1/3, 2/3, 3/3".
-  - Tải danh sách Ứng dụng: "x / y ứng dụng" kèm %.
+### Added
+- **Progress bars for long-running tasks:**
+  - WinSxS analysis (previously showed only a spinner).
+  - `Windows.old` cleanup — estimated progress based on recovered disk space (Disk Cleanup does not
+    report progress).
+  - Large-file and duplicate scans — when scanning a whole drive, traversal progress is estimated
+    from used space; duplicate scanning now clearly shows "Step 1/3, 2/3, 3/3".
+  - Loading the Apps list — "x / y apps" with a percentage.
 
-### Thay đổi
-- **Gỡ được app cài riêng cho người dùng khi đang nâng quyền bằng tài khoản admin khác** (trước đây
-  bị chặn). Trình gỡ được chạy dưới chính tài khoản đang đăng nhập Windows (như khi bạn tự gỡ trong
-  Settings), nên gỡ đúng profile của bạn; sau khi gỡ vẫn mở "Dọn phần còn sót" như bình thường.
-- **Gỡ app cài cho cả máy khi PC Manager đang chạy quyền thường:** trình gỡ cần quyền admin giờ được
-  mở qua hộp UAC (như khi gỡ trong Settings) thay vì báo lỗi "requires elevation" (mã 740). Bấm No ở
-  UAC thì báo rõ là chưa gỡ gì.
-- Dọn WinSxS xong chỉ báo kết quả và ẩn bảng phân tích cũ; bỏ nút "Phân tích lại" (bấm "Phân tích"
-  khi muốn xem).
-- Khi DISM báo thành công nhưng không lấy lại được gì, thông báo nói rõ là "không còn gì để dọn
-  thêm" thay vì "Xong sau 1 giây — không thấy dung lượng trống tăng thêm".
+### Changed
+- **Per-user apps can now be uninstalled while elevated with a different administrator account**
+  (previously blocked). The uninstaller runs as the signed-in Windows user (as it does from Windows
+  Settings), so it uses the correct profile. "Clean leftovers" still opens afterward.
+- **Machine-wide apps can now be uninstalled while PC Manager runs without elevation:** uninstallers
+  that require administrator privileges are launched through a UAC prompt (as in Windows Settings)
+  instead of returning the confusing "requires elevation" error (code 740). Selecting No in UAC
+  clearly reports that nothing was uninstalled.
+- After WinSxS cleanup, the result is shown and the old analysis is hidden; the "Analyze again"
+  button has been removed (click "Analyze" when you want to review the store).
+- When DISM reports success but recovers no space, the message now says there is "nothing more to
+  clean" instead of "Finished in 1 second — no increase in free space detected."
 
-### Sửa lỗi
-- Thông báo kết quả / lỗi của thao tác (Ứng dụng, Dọn rác, Dọn sâu hệ thống, Ổ đĩa, Tiến trình,
-  Khởi động) giờ có nút × để tắt, không còn đọng lại mãi.
-- Gỡ một app mà trình gỡ đã không còn trên máy (thường là app đã gỡ nhưng còn sót mục trong danh
-  sách): thay vì "Không tìm thấy: không tìm thấy …", thông báo giải thích và hướng dẫn bấm "Dọn sót"
-  để xoá phần còn lại.
-- Trang Khởi động: số trên tab "Tác vụ khi đăng nhập" / "Dịch vụ tự khởi động" đếm cả mục của
-  Microsoft đang bị ẩn nên không khớp danh sách. Giờ số trên tab = số dòng đang hiện, và ô "Ẩn mục
-  của Microsoft" ghi rõ đang ẩn bao nhiêu mục. Nút "Tải lại" chuyển lên cạnh ô tìm kiếm nên không
-  còn bị đẩy xuống dòng khi bật/tắt ô này.
-- Trang Ứng dụng: ô "Sắp xếp" chuyển lên cạnh nút "Tải lại", không còn bị đẩy xuống dòng khi chọn
-  bộ lọc "Không dùng > …" (lúc hiện thêm ô "Gồm cả app chưa rõ lần dùng").
+### Fixed
+- Result and error notices on Apps, Junk Cleaner, System Deep Clean, Disks, Processes, and Startup
+  can now be dismissed with × instead of remaining indefinitely.
+- When an app's uninstaller is missing (often because the app was uninstalled but its list entry
+  remains), the message now explains the situation and directs you to "Clean leftovers" instead of
+  showing the confusing "Not found: not found …" message.
+- Startup tab counts now match the visible entries. Previously, counts included hidden Microsoft
+  entries; the "Hide Microsoft entries" checkbox now reports how many entries are hidden. The
+  "Refresh" button moved next to search so it no longer wraps when the checkbox changes the row
+  width.
+- On the Apps page, the sort control moved next to "Refresh" so it no longer wraps when choosing
+  the "Unused > …" filter (which reveals an "Include apps with unknown last-used date" option).
 
 ## [1.0.3] - 2026-11-11
 
-### Mới
-- **Chuyển tab không còn mất trạng thái.** Đang quét/dọn ở một tab rồi sang tab khác, khi quay lại
-  vẫn thấy đúng tiến độ, kết quả quét và các mục đã chọn. Mỗi tab nhớ vị trí cuộn của riêng nó.
-- **Dấu "đang chạy" ở thanh bên:** tab nào còn tác vụ (quét/dọn rác, dọn WinSxS, Windows.old,
-  quét ổ đĩa, gỡ app, dọn phần còn sót, Boost) có biểu tượng xoay cạnh tên.
-- **Đóng cửa sổ (xuống khay hệ thống) rồi mở lại không mất tác vụ đang chạy.** Tác vụ dài vẫn chạy
-  trong nền; mở lại cửa sổ sẽ thấy lại tiến độ, hoặc kết quả nếu tác vụ đã xong trong lúc cửa sổ
-  đóng. Áp dụng cho: quét/dọn rác, phân tích/dọn WinSxS, xoá Windows.old, quét file lớn/file trùng.
+### Added
+- **Switching tabs no longer loses state.** If you start a scan or cleanup on one tab and switch to
+  another, you still see the progress, results, and selected items when you return. Each tab
+  remembers its own scroll position.
+- **Running-task indicators in the sidebar:** a spinner appears beside each page that still has a
+  task in progress (scanning or cleaning junk, cleaning WinSxS or `Windows.old`, scanning a drive,
+  uninstalling an app, cleaning leftovers, or running Boost).
+- **Closing the window to the system tray no longer loses running tasks.** Long-running tasks
+  continue in the background; reopening the window restores their progress or shows their result if
+  they finished while the window was closed. This applies to junk scans and cleanup, WinSxS
+  analysis and cleanup, `Windows.old` cleanup, and large-file and duplicate scans.
 
-### Thay đổi
-- **Dọn WinSxS xong không tự phân tích lại nữa** (trước đây mất thêm ~1 phút). Bảng phân tích cũ được
-  ẩn vì đã không còn đúng; bấm "Phân tích lại để xem kho sau khi dọn" nếu muốn xem. Thông báo kết
-  quả dọn được giữ lại khi phân tích lại.
-- Tab đang ẩn không còn cập nhật định kỳ (Tiến trình, Khởi động) — đỡ tốn CPU; quay lại tab là cập
-  nhật ngay.
+### Changed
+- **WinSxS is no longer analyzed automatically after cleanup** (previously this took about another
+  minute). The old analysis is hidden because it is no longer current; click "Analyze again to see
+  the store after cleanup" if you want an updated result. The cleanup result stays visible.
+- Hidden tabs (Processes and Startup) no longer refresh in the background, reducing CPU use; they
+  refresh immediately when you return.
 
-### Sửa lỗi
-- Tab "Ứng dụng" hiện biểu tượng đang chạy dù không có tác vụ nào.
-- Hộp thoại xác nhận của tab đang ẩn không còn bị đóng bởi phím Esc bấm ở tab khác.
+### Fixed
+- The Apps tab no longer shows a running-task indicator when no task is active.
+- A confirmation dialog on a hidden tab can no longer be dismissed by pressing Esc on another tab.
 
 ## [1.0.2] - 2026-11-11
 
-### Sửa lỗi
-- **App không mở được giao diện khi nâng quyền bằng tài khoản admin khác** (máy công ty / domain:
-  hộp thoại UAC hỏi tài khoản và mật khẩu admin). Lỗi "Microsoft Edge can't read and write to its
-  data directory" đã hết.
+### Fixed
+- **The UI now opens when elevated with a different administrator account** (for example, on a work
+  or domain PC where the UAC dialog asks for another account's credentials). The "Microsoft Edge
+  can't read and write to its data directory" error is fixed.
 
-### Thay đổi
-- Khi nâng quyền bằng tài khoản admin khác, tài khoản đó chỉ dùng để lấy quyền; mọi thứ thuộc về
-  người dùng đều theo **người đang đăng nhập Windows**:
-  - cài đặt, lịch sử thao tác, log của app;
-  - Dọn rác (Temp, cache trình duyệt, ảnh thu nhỏ…), danh sách thư mục cấm (cấm luôn toàn bộ
-    profile của tài khoản admin);
-  - Thùng rác (làm rỗng, chuyển file lớn/trùng và phần còn sót vào Thùng rác — khôi phục được từ
-    Thùng rác của chính bạn);
-  - Khởi động (Run, thư mục Startup), Ứng dụng (app cài riêng cho người dùng, lần dùng cuối, dọn
-    phần còn sót, bản sao lưu `.reg`);
-  - Khởi động cùng Windows: task chạy khi bạn đăng nhập.
-- Gỡ app cài riêng cho người dùng bị chặn khi đang nâng quyền bằng tài khoản khác (trình gỡ sẽ gỡ
-  nhầm profile) — mở PC Manager ở chế độ thường để gỡ.
-- Chẩn đoán WebView2 ghi vào `%APPDATA%\com.pcmanager.app\logs\webview.log`.
+### Changed
+- When elevated with a different administrator account, that account is used only to obtain
+  privileges; all personal data stays with the **signed-in Windows user**:
+  - settings, activity history, and app logs;
+  - Junk Cleaner data (Temp, browser caches, thumbnails…) and protected folders (the administrator's
+    entire profile is protected);
+  - Recycle Bin operations (emptying it and moving large/duplicate files and leftovers into it, so
+    they can be restored from your own Recycle Bin);
+  - Startup entries (Run and Startup folders), installed apps (per-user apps, last-used dates,
+    leftover cleanup, and `.reg` backups);
+  - Start with Windows: the task runs when you sign in.
+- Uninstalling a per-user app is blocked when elevated with another account because the uninstaller
+  would target the wrong profile. Reopen PC Manager normally to uninstall it.
+- WebView2 diagnostics are written to `%APPDATA%\\com.pcmanager.app\\logs\\webview.log`.

@@ -10,19 +10,19 @@ use crate::state::AppState;
 pub async fn startup_list(app: AppHandle) -> AppResult<Vec<StartupEntry>> {
     tauri::async_runtime::spawn_blocking(move || startup::list(&app.state::<AppState>().process.publishers))
         .await
-        .map_err(|e| crate::error::task_failed("xử lý mục khởi động", e))?
+        .map_err(|e| crate::error::task_failed("updating startup entry", e))?
 }
 
 #[tauri::command]
 pub async fn startup_set_enabled(app: AppHandle, source: Source, name: String, enabled: bool) -> AppResult<()> {
     if name.is_empty() || name.len() > 512 {
-        return Err(AppError::InvalidInput("tên không hợp lệ".into()));
+        return Err(AppError::InvalidInput("Invalid name".into()));
     }
     tauri::async_runtime::spawn_blocking(move || {
         startup::set_enabled(&app.state::<AppState>().store, source, &name, enabled)
     })
     .await
-    .map_err(|e| crate::error::task_failed("xử lý mục khởi động", e))?
+    .map_err(|e| crate::error::task_failed("updating startup entry", e))?
 }
 
 /// Mở tab Startup của Task Manager (bật/tắt app Store tự chạy — PC Manager chỉ đọc nguồn này).
@@ -39,7 +39,7 @@ pub async fn startup_open_settings() -> AppResult<()> {
     let args = format!("/d /c start \"\" \"{}\" /0 /startup", sys32.join("Taskmgr.exe").display());
     if crate::sys::token::is_elevated().unwrap_or(true) {
         crate::sys::launch::spawn_as_shell_user(&cmd, &args, &crate::user::environment(), CREATE_NO_WINDOW)
-            .map_err(|e| AppError::Other(format!("không mở được Task Manager: {}", e.message())))?;
+            .map_err(|e| AppError::Other(format!("Could not open Task Manager: {}", e.message())))?;
     } else {
         std::process::Command::new(cmd).raw_arg(&args).creation_flags(CREATE_NO_WINDOW).spawn()?;
     }

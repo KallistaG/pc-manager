@@ -11,9 +11,9 @@ import { UpdateSettings } from "../components/UpdatePanel";
 import { useTheme, type ThemePref } from "../lib/theme";
 
 const INTERVALS = [
-  { v: 1, label: "Hằng ngày" },
-  { v: 7, label: "Hằng tuần" },
-  { v: 30, label: "Hằng tháng" },
+  { v: 1, label: "Daily" },
+  { v: 7, label: "Weekly" },
+  { v: 30, label: "Monthly" },
 ];
 
 function useFlash(): [string | null, (s: string) => void] {
@@ -35,7 +35,7 @@ function AutoCleanSettings({ s, onChange }: { s: GeneralSettings; onChange: (s: 
     try {
       const next = await api.settingsSetAutoClean(enabled, intervalDays, ruleIds);
       onChange({ ...s, autoClean: next });
-      flash("Đã lưu");
+      flash("Saved");
     } catch (e) {
       setErr(errorMessage(e));
     }
@@ -54,7 +54,7 @@ function AutoCleanSettings({ s, onChange }: { s: GeneralSettings; onChange: (s: 
             disabled={a.ruleIds.length === 0 && !a.enabled}
             onChange={(e) => save(e.target.checked, a.intervalDays, a.ruleIds)}
           />
-          Tự động dọn rác
+          Clean up junk automatically
         </label>
         <select
           value={a.intervalDays}
@@ -68,7 +68,7 @@ function AutoCleanSettings({ s, onChange }: { s: GeneralSettings; onChange: (s: 
           ))}
         </select>
         <span className="text-xs opacity-60">
-          Lần chạy gần nhất: {a.lastRunMs != null ? new Date(a.lastRunMs).toLocaleString("vi-VN") : "chưa chạy"}
+          Last run: {a.lastRunMs != null ? new Date(a.lastRunMs).toLocaleString("en-US") : "Never"}
         </span>
         {saved && <b className="text-xs text-green-600">{saved}</b>}
       </div>
@@ -84,8 +84,7 @@ function AutoCleanSettings({ s, onChange }: { s: GeneralSettings; onChange: (s: 
         ))}
       </div>
       <p className="text-xs opacity-60">
-        Chỉ các mục rủi ro thấp được phép dọn tự động (không dừng service, không làm rỗng Thùng rác). Vẫn bỏ qua file mới, file đang
-        mở, thư mục bảo vệ. Mỗi lần chạy được ghi vào nhật ký bên dưới. Muốn xem trước, dùng trang Dọn rác.
+        Only low-risk items can be cleaned automatically (services are never stopped and the Recycle Bin is never emptied). New files, files in use, and protected folders are still skipped. Each run is recorded in the activity log below. To preview a cleanup, use the Junk Cleaner page.
       </p>
       {err && <Notice tone="error">{err}</Notice>}
     </div>
@@ -103,7 +102,7 @@ function WhitelistSettings({ s, onChange }: { s: GeneralSettings; onChange: (s: 
       const list = await api.settingsSetWhitelist(paths);
       onChange({ ...s, whitelist: list });
       setInput("");
-      flash("Đã lưu");
+      flash("Saved");
     } catch (e) {
       setErr(errorMessage(e));
     }
@@ -112,7 +111,7 @@ function WhitelistSettings({ s, onChange }: { s: GeneralSettings; onChange: (s: 
   return (
     <div className="grid gap-3 text-sm">
       <p className="text-xs opacity-60">
-        PC Manager sẽ <b>không bao giờ</b> xoá gì trong các thư mục này — áp dụng cho Dọn rác, Ổ đĩa và Dọn phần còn sót.
+        PC Manager will <b>never</b> delete anything in these folders — this applies to Junk Cleaner, Disks, and leftover cleanup.
       </p>
       <form
         className="flex gap-2"
@@ -124,15 +123,15 @@ function WhitelistSettings({ s, onChange }: { s: GeneralSettings; onChange: (s: 
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="vd D:\Projects hoặc C:\Users\…\AppData\Local\MyApp"
+          placeholder="e.g. D:\Projects or C:\Users\…\AppData\Local\MyApp"
           className={`flex-1 ${INPUT}`}
         />
         <Button size="sm" type="submit" disabled={!input.trim()}>
-          Thêm
+          Add
         </Button>
       </form>
       {s.whitelist.length === 0 ? (
-        <div className="text-xs opacity-50">Chưa có thư mục nào.</div>
+        <div className="text-xs opacity-50">No folders added.</div>
       ) : (
         <ul className={`divide-y divide-black/5 dark:divide-white/5 ${PANEL}`}>
           {s.whitelist.map((p) => (
@@ -141,7 +140,7 @@ function WhitelistSettings({ s, onChange }: { s: GeneralSettings; onChange: (s: 
                 {p}
               </span>
               <Button variant="ghost" size="sm" onClick={() => save(s.whitelist.filter((x) => x !== p))}>
-                Xoá
+                Remove
               </Button>
             </li>
           ))}
@@ -174,18 +173,16 @@ function AutostartSettings({ s, onChange }: { s: GeneralSettings; onChange: (s: 
           type="checkbox"
           className="accent-[var(--color-accent)]"
           checked={s.autostart}
-          // Luôn cho TẮT; chỉ cho BẬT khi app được cài trong Program Files.
+          // Disabling is always allowed; enabling is only allowed when installed in Program Files.
           disabled={busy || !s.elevated || (!s.autostart && !!s.autostartBlocked)}
           onChange={(e) => set(e.target.checked)}
         />
-        Khởi động cùng Windows (chạy ẩn ở khay hệ thống)
+        Start with Windows (run minimized to the system tray)
       </label>
       <p className="text-xs opacity-60">
-        Dùng Task Scheduler với quyền cao nhất — vì PC Manager cần quyền Administrator, cách "Run" thông thường sẽ bị UAC chặn. App
-        sẽ chạy với quyền Administrator mà không hỏi lại, nên chỉ được bật khi PC Manager được cài trong Program Files (chỉ admin mới
-        sửa được file ở đó).
+        Uses Task Scheduler with the highest privileges. Since PC Manager requires administrator privileges, a regular Run entry would be blocked by UAC. The app runs as an administrator without prompting, so this option is only available when PC Manager is installed in Program Files (where only administrators can modify files).
       </p>
-      {!s.elevated && <AdminNotice>Bật/tắt tuỳ chọn này cần quyền Administrator.</AdminNotice>}
+      {!s.elevated && <AdminNotice>Administrator privileges are required to change this setting.</AdminNotice>}
       {s.elevated && s.autostartBlocked && <Notice tone="warn">{s.autostartBlocked}</Notice>}
       {err && <Notice tone="error">{err}</Notice>}
     </div>
@@ -202,7 +199,7 @@ function ActivityLog() {
     <div className="text-sm">
       <div className="mb-2 flex justify-end">
         <Button variant="ghost" size="sm" onClick={load}>
-          <IconRefresh /> Tải lại
+          <IconRefresh /> Refresh
         </Button>
       </div>
       <div className={`max-h-80 overflow-auto ${PANEL}`}>
@@ -210,7 +207,7 @@ function ActivityLog() {
           <tbody>
             {(items ?? []).map((a, i) => (
               <tr key={i} className="border-t border-black/5 first:border-t-0 dark:border-white/5" title={a.detail}>
-                <td className="w-36 px-3 py-1 tabular-nums opacity-60">{new Date(a.ts).toLocaleString("vi-VN")}</td>
+                <td className="w-36 px-3 py-1 tabular-nums opacity-60">{new Date(a.ts).toLocaleString("en-US")}</td>
                 <td className="w-44 px-2 py-1 font-mono">{a.action}</td>
                 <td className="truncate px-2 py-1">{a.target}</td>
                 <td className={`w-10 px-2 py-1 ${a.ok ? "text-green-600" : "text-red-600"}`}>{a.ok ? <IconCheck /> : <IconX />}</td>
@@ -218,7 +215,7 @@ function ActivityLog() {
             ))}
             {items?.length === 0 && (
               <tr>
-                <td className="px-3 py-6 text-center opacity-50">Chưa có thao tác nào</td>
+                <td className="px-3 py-6 text-center opacity-50">No activity yet</td>
               </tr>
             )}
           </tbody>
@@ -229,16 +226,16 @@ function ActivityLog() {
 }
 
 const THEMES: { id: ThemePref; label: string }[] = [
-  { id: "dark", label: "Tối" },
-  { id: "light", label: "Sáng" },
-  { id: "system", label: "Theo Windows" },
+  { id: "dark", label: "Dark" },
+  { id: "light", label: "Light" },
+  { id: "system", label: "Follow Windows" },
 ];
 
 function ThemeSettings() {
   const [pref, setPref] = useTheme();
   return (
     <div className="grid gap-2 text-sm">
-      <div className="inline-flex w-fit rounded-lg bg-black/5 p-1 dark:bg-white/5" role="radiogroup" aria-label="Giao diện">
+      <div className="inline-flex w-fit rounded-lg bg-black/5 p-1 dark:bg-white/5" role="radiogroup" aria-label="Theme">
         {THEMES.map((t) => (
           <button
             key={t.id}
@@ -252,7 +249,7 @@ function ThemeSettings() {
           </button>
         ))}
       </div>
-      <p className="text-xs opacity-60">Chỉ đổi màu giao diện, không ảnh hưởng tốc độ của app.</p>
+      <p className="text-xs opacity-60">Changes the appearance only and does not affect app performance.</p>
     </div>
   );
 }
@@ -268,34 +265,33 @@ export default function Settings() {
   }, []);
 
   return (
-    <PageShell title="Cài đặt" subtitle="Smart Boost, dọn tự động, khởi động cùng Windows, cập nhật, thư mục bảo vệ.">
+    <PageShell title="Settings" subtitle="Smart Boost, automatic cleanup, startup, updates, and protected folders.">
       {err && <Notice tone="error">{err}</Notice>}
       {/*
-        Hai cột, card cùng hàng cao bằng nhau (grid mặc định stretch): ghép các card có độ cao gần
-        nhau thành một hàng; card nhiều nội dung (whitelist, nhật ký) chiếm cả hàng.
+        Two columns with equal-height cards in each row (the default grid stretch behavior): group similarly sized cards together; larger cards (allowlist, activity log) span both columns.
       */}
       <div className="grid gap-4 xl:grid-cols-2">
-        <Card title="Giao diện">
+        <Card title="Theme">
           <ThemeSettings />
         </Card>
-        <Card title="Khởi động">{s && <AutostartSettings s={s} onChange={setS} />}</Card>
+        <Card title="Startup">{s && <AutostartSettings s={s} onChange={setS} />}</Card>
         <Card title="Smart Boost">
           <SmartSettings />
         </Card>
-        <Card title="Lịch dọn tự động">{s && <AutoCleanSettings s={s} onChange={setS} />}</Card>
-        <Card title="Cập nhật" className="xl:col-span-2">
+        <Card title="Automatic cleanup schedule">{s && <AutoCleanSettings s={s} onChange={setS} />}</Card>
+        <Card title="Updates" className="xl:col-span-2">
           <UpdateSettings />
         </Card>
-        <Card title="Thư mục bảo vệ (whitelist)" className="xl:col-span-2">
+        <Card title="Protected folders (allowlist)" className="xl:col-span-2">
           {s && <WhitelistSettings s={s} onChange={setS} />}
         </Card>
-        <Card title="Nhật ký thao tác" className="xl:col-span-2">
+        <Card title="Activity log" className="xl:col-span-2">
           <ActivityLog />
         </Card>
       </div>
       {info && (
         <p className="mt-4 text-xs opacity-50">
-          PC Manager {info.version} · PID {info.pid} · {info.isElevated ? "đang chạy với quyền Administrator" : "không có quyền Administrator"}
+          PC Manager {info.version} · PID {info.pid} · {info.isElevated ? "running as administrator" : "not running as administrator"}
         </p>
       )}
     </PageShell>

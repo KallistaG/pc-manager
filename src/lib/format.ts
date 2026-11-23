@@ -21,15 +21,19 @@ export function daysAgo(ms: number, now = Date.now()): number {
 
 /** 0 → "hôm nay", 1 → "hôm qua", 45 → "1 tháng trước", 800 → "2 năm trước". */
 export function relativeDays(days: number): string {
-  if (days <= 0) return "hôm nay";
-  if (days === 1) return "hôm qua";
-  if (days < 30) return `${days} ngày trước`;
-  if (days < 365) return `${Math.floor(days / 30)} tháng trước`;
-  return `${Math.floor(days / 365)} năm trước`;
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 30) return `${days} ${days === 1 ? "day" : "days"} ago`;
+  if (days < 365) {
+    const months = Math.floor(days / 30);
+    return `${months} ${months === 1 ? "month" : "months"} ago`;
+  }
+  const years = Math.floor(days / 365);
+  return `${years} ${years === 1 ? "year" : "years"} ago`;
 }
 
 export function formatDate(ms: number): string {
-  return new Date(ms).toLocaleDateString("vi-VN");
+  return new Date(ms).toLocaleDateString("en-US");
 }
 
 export function pct(part: number, total: number): number {

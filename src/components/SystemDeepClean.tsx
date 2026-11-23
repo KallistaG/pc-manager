@@ -14,19 +14,19 @@ type Busy = null | "analyze" | "winsxs" | "winold";
 
 function freedText(r: SystemCleanReport, what: "winsxs" | "winold"): string {
   const secs = Math.max(1, Math.round(r.durationMs / 1000));
-  const reboot = r.rebootRequired ? " Cần khởi động lại máy để hoàn tất." : "";
-  if (!r.nothingFreed) return `Xong sau ${secs} giây — giải phóng khoảng ${formatBytes(r.freedBytes)}.${reboot}`;
+  const reboot = r.rebootRequired ? " A restart is required to finish." : "";
+  if (!r.nothingFreed) return `Finished in ${secs}s — freed about ${formatBytes(r.freedBytes)}.${reboot}`;
   if (what === "winsxs") {
     // DISM trả "thành công" ngay cả khi không còn gì để dọn (vd. vừa dọn xong lần trước).
     if (r.rebootRequired)
-      return `Xong sau ${secs} giây — chưa dọn được gì vì Windows đang chờ khởi động lại để hoàn tất bản cập nhật. Hãy Restart máy (không phải Shut down) rồi dọn lại.`;
+      return `Finished in ${secs}s — nothing could be cleaned because Windows is waiting for a restart to finish an update. Restart your PC (do not shut it down), then try again.`;
     return (
-      `Xong sau ${secs} giây — không còn gì dọn được lúc này. ` +
-      'Phân tích có thể vẫn báo "gói có thể thu hồi": đó là phần Windows đang giữ, dọn lại không có tác dụng. ' +
-      "PC Manager sẽ không đề xuất dọn WinSxS nữa cho tới khi có bản cập nhật Windows mới."
+      `Finished in ${secs}s — there is nothing else to clean right now. ` +
+      'Analysis may still report "reclaimable packages": these are components Windows is retaining, and cleaning them again will not help. ' +
+      "PC Manager will not recommend cleaning WinSxS again until a new Windows update is available."
     );
   }
-  return `Xong sau ${secs} giây — không thấy dung lượng trống tăng thêm.${reboot}`;
+  return `Finished in ${secs}s — no increase in free space was detected.${reboot}`;
 }
 
 /** Kết quả DISM /AnalyzeComponentStore: tách phần không dọn được khỏi phần dọn được. */
@@ -45,37 +45,34 @@ function AnalysisView({ a }: { a: WinSxsAnalysis }) {
     );
   return (
     <div className="mt-2 grid gap-0.5 text-xs">
-      {row("Tổng kho WinSxS", a.actualSize, "")}
-      {row("├ Dùng chung với Windows", a.sharedWithWindows, "chính là file Windows đang dùng — không dọn được", "opacity-60")}
-      {row("├ Bản sao lưu, tính năng tắt", a.backups, "dọn được một phần (bản cũ đã bị thay thế)")}
-      {row("└ Cache, dữ liệu tạm", a.cache, "dọn được")}
+      {row("Total WinSxS store", a.actualSize, "")}
+      {row("├ Shared with Windows", a.sharedWithWindows, "files currently used by Windows — cannot be cleaned", "opacity-60")}
+      {row("├ Backups and disabled features", a.backups, "partially cleanable (older versions have been replaced)")}
+      {row("└ Cache and temporary data", a.cache, "cleanable")}
       <div className="mt-1">
         {a.verdict === "recommended" ? (
-          <b className="text-amber-700 dark:text-amber-300">Nên dọn</b>
+          <b className="text-amber-700 dark:text-amber-300">Cleanup recommended</b>
         ) : a.verdict === "pendingRestart" ? (
-          <b className="text-amber-700 dark:text-amber-300">Khởi động lại máy trước</b>
+          <b className="text-amber-700 dark:text-amber-300">Restart first</b>
         ) : (
-          <span className="text-green-700 dark:text-green-400">Chưa cần dọn</span>
+          <span className="text-green-700 dark:text-green-400">No cleanup needed</span>
         )}
-        {a.reclaimablePackages != null && ` · DISM báo ${a.reclaimablePackages} gói có thể thu hồi`}
-        {a.lastCleanup && <span className="opacity-60"> · lần dọn gần nhất: {a.lastCleanup}</span>}
+        {a.reclaimablePackages != null && ` · DISM reports ${a.reclaimablePackages} reclaimable packages`}
+        {a.lastCleanup && <span className="opacity-60"> · last cleanup: {a.lastCleanup}</span>}
       </div>
       {a.verdict === "pendingRestart" && (
         <p className="opacity-70">
-          Windows đang chờ khởi động lại để hoàn tất bản cập nhật — trong lúc này DISM gần như không dọn được gì. Hãy Restart
-          máy (không phải Shut down) trước, rồi Phân tích lại.
+          Windows is waiting for a restart to finish an update — DISM can clean very little while this is pending. Restart your PC (do not shut it down), then analyze again.
         </p>
       )}
       {a.verdict === "afterRestart" && (
         <p className="opacity-70">
-          Đã dọn sau lần khởi động gần nhất. Phần DISM còn báo chỉ dọn được sau khi khởi động lại máy (Restart) — dọn lại bây
-          giờ sẽ không lấy lại thêm gì.
+          Cleanup has already run since the last restart. The remaining components reported by DISM can only be cleaned after another restart — running cleanup now will not free more space.
         </p>
       )}
       {a.verdict === "stuck" && (
         <p className="opacity-70">
-          DISM vẫn báo "nên dọn", nhưng lần dọn trước không lấy lại được gì: các gói còn lại Windows đang giữ (thường là bản
-          cập nhật gốc), dọn lại không có tác dụng. PC Manager sẽ đề xuất lại khi có bản cập nhật Windows mới.
+          DISM still recommends cleanup, but the previous cleanup freed no space: Windows is retaining the remaining packages (usually the original update), so running cleanup again will not help. PC Manager will recommend it again after a new Windows update.
         </p>
       )}
     </div>
@@ -119,21 +116,19 @@ export default function SystemDeepClean() {
 
   const cleanWinsxs = () =>
     setConfirm({
-      title: "Dọn WinSxS bằng DISM?",
+      title: "Clean WinSxS with DISM?",
       body: (
         <div className="space-y-2">
           <p>
-            Chạy <code>DISM /StartComponentCleanup</code> — xoá các phiên bản cũ của thành phần Windows đã được thay bằng bản cập nhật
-            mới. Thường mất 5–20 phút, <b>không dừng giữa chừng được</b>.
+            Run <code>DISM /StartComponentCleanup</code> to remove older versions of Windows components replaced by newer updates. This usually takes 5–20 minutes and <b>cannot be interrupted</b>.
           </p>
           <p>
-            Thường chỉ lấy lại vài trăm MB tới vài GB: phần lớn kho WinSxS là file Windows đang dùng (mục "Dùng chung với Windows") và
-            không bao giờ dọn được.
+            This usually frees a few hundred MB to a few GB. Most of the WinSxS store consists of files Windows is using ("Shared with Windows") and cannot be cleaned.
           </p>
-          <p className="text-xs opacity-70">Không dùng /ResetBase: các bản cập nhật đã cài vẫn gỡ được như bình thường.</p>
+          <p className="text-xs opacity-70">/ResetBase is not used, so installed updates can still be uninstalled as usual.</p>
         </div>
       ),
-      confirmLabel: "Bắt đầu dọn",
+      confirmLabel: "Start cleanup",
       onConfirm: async () => {
         setBusy("winsxs");
         setProgress(0);
@@ -171,7 +166,7 @@ export default function SystemDeepClean() {
       setBusy(null);
       setProgress(null);
       if (o.ok) setAnalysis(o.value as WinSxsAnalysis);
-      else setMsg({ tone: "error", text: `Phân tích WinSxS: ${errorMessage(o.value)}` });
+      else setMsg({ tone: "error", text: `WinSxS analysis: ${errorMessage(o.value)}` });
     },
   });
   useJobResume<number>("winsxs.clean", {
@@ -209,17 +204,17 @@ export default function SystemDeepClean() {
 
   const cleanWinOld = () =>
     setConfirm({
-      title: "Xoá bản cài Windows trước (Windows.old)?",
+      title: "Remove the previous Windows installation (Windows.old)?",
       body: (
         <div className="space-y-2">
           <p>
-            Sau khi xoá, bạn <b>không thể quay lại phiên bản Windows trước</b> (Settings → Recovery → Go back). File cá nhân còn sót trong
-            Windows.old cũng bị xoá — hãy kiểm tra trước nếu cần.
+            After removal, you <b>cannot go back to the previous version of Windows</b> (Settings → Recovery → Go back). Any personal files left in
+            Windows.old will also be deleted — check them first if needed.
           </p>
-          <p className="text-xs opacity-70">PC Manager dùng Disk Cleanup của Windows (chỉ bật mục "Previous Windows installation").</p>
+          <p className="text-xs opacity-70">PC Manager uses Windows Disk Cleanup (with only "Previous Windows installation" selected).</p>
         </div>
       ),
-      confirmLabel: "Xoá Windows.old",
+      confirmLabel: "Remove Windows.old",
       danger: true,
       onConfirm: async () => {
         setBusy("winold");
@@ -239,52 +234,52 @@ export default function SystemDeepClean() {
     });
 
   return (
-    <Card title="Dọn sâu hệ thống" className="mt-4">
+    <Card title="System cleanup" className="mt-4">
       <div className="grid gap-3">
-        <AdminNotice>Dọn sâu hệ thống cần quyền Administrator.</AdminNotice>
+        <AdminNotice>System cleanup requires administrator privileges.</AdminNotice>
 
         <div className={`flex flex-wrap items-start justify-between gap-3 p-3 ${PANEL}`}>
           <div className="min-w-0 flex-1 text-sm">
-            <div className="font-medium">Kho thành phần Windows (WinSxS)</div>
+            <div className="font-medium">Windows component store (WinSxS)</div>
             <div className="text-xs opacity-70">
-              Dọn bằng DISM — cách duy nhất an toàn. Không bao giờ xoá trực tiếp file trong WinSxS.
+              Clean with DISM — the only safe method. Never delete files directly from WinSxS.
             </div>
             {analysis && <AnalysisView a={analysis} />}
-            {busy === "winsxs" && <ProgressBar className="mt-2" pct={progress} label="Đang dọn bằng DISM — đừng tắt máy." />}
-            {busy === "analyze" && <ProgressBar className="mt-2" pct={progress} label="Đang phân tích kho WinSxS (chỉ đọc)…" />}
+            {busy === "winsxs" && <ProgressBar className="mt-2" pct={progress} label="Cleaning with DISM — do not turn off your PC." />}
+            {busy === "analyze" && <ProgressBar className="mt-2" pct={progress} label="Analyzing the WinSxS store (read-only)…" />}
           </div>
           <div className="flex gap-2">
-            <Button variant="secondary" size="sm" disabled={locked} loading={busy === "analyze"} onClick={analyze} title="DISM /AnalyzeComponentStore — chỉ đọc, ~1 phút">
-              Phân tích
+            <Button variant="secondary" size="sm" disabled={locked} loading={busy === "analyze"} onClick={analyze} title="DISM /AnalyzeComponentStore — read-only, ~1 minute">
+              Analyze
             </Button>
             <Button size="sm" disabled={locked} loading={busy === "winsxs"} onClick={cleanWinsxs}>
-              Dọn WinSxS
+              Clean WinSxS
             </Button>
           </div>
         </div>
 
         <div className={`flex flex-wrap items-start justify-between gap-3 p-3 ${PANEL}`}>
           <div className="min-w-0 flex-1 text-sm">
-            <div className="font-medium">Bản cài Windows trước (Windows.old)</div>
+            <div className="font-medium">Previous Windows installation (Windows.old)</div>
             <div className="text-xs opacity-70">
               {winOld == null ? (
                 <span className="inline-flex items-center gap-1">
-                  <Spinner className="h-3 w-3" /> Đang kiểm tra…
+                  <Spinner className="h-3 w-3" /> Checking…
                 </span>
               ) : winOld.exists ? (
                 <>
-                  {winOld.path} · khoảng <b>{formatBytes(winOld.bytes)}</b>. Tạo ra sau khi nâng cấp Windows, dùng để quay lại bản cũ.
+                  {winOld.path} · about <b>{formatBytes(winOld.bytes)}</b>. Created after a Windows upgrade and used to roll back to the previous version.
                 </>
               ) : (
-                "Không có — máy chưa nâng cấp Windows gần đây hoặc đã được dọn."
+                "None — Windows has not been upgraded recently, or it has already been cleaned."
               )}
             </div>
             {busy === "winold" && (
-              <ProgressBar className="mt-2" pct={progress} label="Disk Cleanup đang xoá Windows.old — % ước lượng theo dung lượng đã lấy lại." />
+              <ProgressBar className="mt-2" pct={progress} label="Disk Cleanup is removing Windows.old — percentage is estimated from space recovered." />
             )}
           </div>
           <Button variant="danger" size="sm" disabled={locked || !winOld?.exists} loading={busy === "winold"} onClick={cleanWinOld}>
-            Xoá Windows.old
+            Remove Windows.old
           </Button>
         </div>
 

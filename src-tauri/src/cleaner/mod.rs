@@ -212,7 +212,7 @@ impl CleanerManager {
     fn lock_running(&self) -> AppResult<std::sync::MutexGuard<'_, ()>> {
         match self.running.try_lock() {
             Ok(g) => Ok(g),
-            Err(TryLockError::WouldBlock) => Err(AppError::Busy("đang quét hoặc dọn".into())),
+            Err(TryLockError::WouldBlock) => Err(AppError::Busy("A scan or cleanup is already running".into())),
             Err(TryLockError::Poisoned(p)) => Ok(p.into_inner()),
         }
     }
@@ -228,7 +228,7 @@ impl CleanerManager {
         }
         let open: Vec<&String> = rule.skip_if_running.iter().filter(|p| running.contains(&p.to_lowercase())).collect();
         if let Some(p) = open.first() {
-            return Some(RuleStatus::Blocked { reason: format!("{p} đang chạy — hãy đóng ứng dụng rồi quét lại") });
+            return Some(RuleStatus::Blocked { reason: format!("{p} is running — close the app and scan again") });
         }
         None
     }
@@ -354,7 +354,7 @@ impl CleanerManager {
             .lock_recover()
             .take()
             .filter(|s| s.id == scan_id && s.at.elapsed() < SCAN_TTL)
-            .ok_or_else(|| AppError::InvalidInput("kết quả quét đã cũ hoặc không tồn tại — hãy quét lại".into()))?;
+            .ok_or_else(|| AppError::InvalidInput("The scan result has expired or is missing — please scan again".into()))?;
         let report = self.clean_inner(store, &mut scan, rule_ids, dry_run, on_progress)?;
         // Dry-run không xoá gì => giữ kết quả quét để có thể dọn thật ngay sau đó.
         if dry_run {
@@ -421,9 +421,9 @@ impl CleanerManager {
                 let tick = || emit(i as u32, &rule.name, false);
                 let mut rc = RuleClean { id: id.clone(), name: rule.name.clone(), stats: DeleteStats::default(), message: None };
                 match (scan.data.get(id), self.precheck(rule, &running)) {
-                    (None, _) => rc.message = Some("không có trong kết quả quét".into()),
+                    (None, _) => rc.message = Some("Not included in the scan result".into()),
                     (_, Some(RuleStatus::Blocked { reason })) => rc.message = Some(reason),
-                    (_, Some(_)) => rc.message = Some("cần quyền Administrator".into()),
+                    (_, Some(_)) => rc.message = Some("Administrator privileges are required".into()),
                     (Some(Prepared::Recycle(info)), None) => {
                         if dry_run {
                             rc.stats.deleted_files = info.items;
@@ -436,7 +436,7 @@ impl CleanerManager {
                                     counters.files.fetch_add(info.items, Ordering::Relaxed);
                                     counters.bytes.fetch_add(info.bytes, Ordering::Relaxed);
                                 }
-                                Err(e) => rc.message = Some(format!("không làm rỗng được Thùng rác: {e}")),
+                                Err(e) => rc.message = Some(format!("Could not empty the Recycle Bin: {e}")),
                             }
                         }
                     }
@@ -485,7 +485,7 @@ impl CleanerManager {
                 }
                 Err(e) => {
                     store.log_action_best_effort("service.stop", svc, false, &e.to_string());
-                    rc.message = Some(format!("không dừng được dịch vụ {svc}: {e}"));
+                    rc.message = Some(format!("Could not stop service {svc}: {e}"));
                     return;
                 }
             }

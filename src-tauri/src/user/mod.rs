@@ -211,7 +211,7 @@ mod tests {
         let v = resolve_vars(&fixed, &raw, &machine);
         assert_eq!(v["USERPROFILE"], r"C:\Users\thuong");
         assert_eq!(v["TEMP"], r"C:\Users\thuong\AppData\Local\Temp");
-        assert_eq!(v["TMP"], r"C:\Users\thuong\AppData\Local\Temp", "thiếu TMP => LOCALAPPDATA\\Temp");
+        assert_eq!(v["TMP"], r"C:\Users\thuong\AppData\Local\Temp", "missing TMP should fall back to LOCALAPPDATA\\Temp");
         assert_eq!(v["TOOLS"], r"C:\Windows\x");
     }
 
@@ -225,7 +225,7 @@ mod tests {
         };
         let machine = |k: &str| Some(format!("admin:{k}"));
         assert_eq!(lookup_in(&o, "appdata", &machine).as_deref(), Some(r"C:\Users\thuong\AppData\Roaming"));
-        assert_eq!(lookup_in(&o, "OneDrive", &machine), None, "biến theo user mà user không có => không mượn của admin");
+        assert_eq!(lookup_in(&o, "OneDrive", &machine), None, "do not fall back to an administrator value when the user has no variable");
         assert_eq!(lookup_in(&o, "AdminTool", &machine), None);
         assert_eq!(lookup_in(&o, "SystemRoot", &machine).as_deref(), Some("admin:SystemRoot"));
     }
@@ -262,7 +262,7 @@ mod tests {
     #[test]
     fn same_user_uses_process_context() {
         if is_other_user() {
-            println!("bỏ qua: test đang chạy bằng tài khoản admin khác user đang đăng nhập");
+            println!("Skipped: the test is running under a different administrator account than the signed-in user");
             return;
         }
         assert!(!is_other_user());

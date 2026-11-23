@@ -33,7 +33,7 @@ impl ProcessRef {
     fn create_time(&self) -> AppResult<u64> {
         self.create_time
             .parse()
-            .map_err(|_| AppError::InvalidInput(format!("createTime không hợp lệ: {}", self.create_time)))
+            .map_err(|_| AppError::InvalidInput(format!("Invalid createTime: {}", self.create_time)))
     }
 }
 
@@ -128,7 +128,7 @@ impl ProcessManager {
             let publisher = d.path.as_deref().map_or(Publisher::Unknown, |path| self.publishers.get(path));
             let protected_reason = guard::static_protection(p.pid, &p.name, self.self_pid)
                 .map(str::to_owned)
-                .or_else(|| d.critical.then(|| "tiến trình critical của Windows".to_owned()));
+                .or_else(|| d.critical.then(|| "critical Windows process".to_owned()));
 
             processes.push(ProcessInfo {
                 pid: p.pid,
@@ -179,8 +179,8 @@ impl ProcessManager {
 
         let result = (|| -> AppResult<ActionOutcome> {
             let h = ProcessHandle::open(raw.pid, create_time, access)?
-                .ok_or_else(|| AppError::NotFound(format!("{label} đã thoát")))?;
-            let critical = h.is_critical().unwrap_or(true); // không biết => coi như critical
+                .ok_or_else(|| AppError::NotFound(format!("{label} has exited")))?;
+            let critical = h.is_critical().unwrap_or(true); // unknown => assume critical
             guard::check(op.guard_op(), raw.pid, &raw.name, self.self_pid, critical).map_err(AppError::Forbidden)?;
 
             match op {
@@ -194,7 +194,7 @@ impl ProcessManager {
                     return Ok(ActionOutcome { trimmed_bytes: Some(raw.working_set.saturating_sub(after)) });
                 }
                 ProcessOp::OpenLocation => {
-                    let path = h.image_path().ok_or_else(|| AppError::NotFound("không đọc được đường dẫn".into()))?;
+                    let path = h.image_path().ok_or_else(|| AppError::NotFound("Could not read the file path".into()))?;
                     open_in_explorer(&path)?;
                 }
             }
@@ -259,7 +259,7 @@ fn find(pid: u32, create_time: u64) -> AppResult<RawProcess> {
     sysproc::enumerate()?
         .into_iter()
         .find(|p| p.pid == pid && p.create_time == create_time)
-        .ok_or_else(|| AppError::NotFound(format!("tiến trình {pid} đã thoát")))
+        .ok_or_else(|| AppError::NotFound(format!("Process {pid} has exited")))
 }
 
 fn load_details(p: &RawProcess) -> Details {
@@ -293,7 +293,7 @@ mod tests {
         let snap = pm.snapshot().unwrap();
         let me = snap.processes.iter().find(|p| p.pid == std::process::id()).unwrap();
         assert!(me.path.as_deref().is_some_and(|p| p.ends_with(".exe")));
-        assert_eq!(me.protected_reason.as_deref(), Some("chính PC Manager"));
+        assert_eq!(me.protected_reason.as_deref(), Some("PC Manager itself"));
         assert!(snap.processes.iter().all(|p| (0.0..=100.0).contains(&p.cpu_pct)));
         let system = snap.processes.iter().find(|p| p.pid == 4).unwrap();
         assert!(system.protected_reason.is_some());
@@ -357,9 +357,9 @@ mod tests {
             }
         };
         pm.act(&store, &target, ProcessOp::Suspend).unwrap();
-        assert!(settles(true), "tiến trình phải ở trạng thái tạm dừng");
+        assert!(settles(true), "process should be suspended");
         pm.act(&store, &target, ProcessOp::Resume).unwrap();
-        assert!(settles(false), "tiến trình phải chạy lại");
+        assert!(settles(false), "process should resume");
         pm.act(&store, &target, ProcessOp::SetPriority(PriorityClass::BelowNormal)).unwrap();
         assert!(pm.act(&store, &target, ProcessOp::Trim).unwrap().trimmed_bytes.is_some());
         pm.act(&store, &target, ProcessOp::Kill).unwrap();

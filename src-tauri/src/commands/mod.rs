@@ -18,7 +18,7 @@ pub(crate) fn open_ms_settings(uri: &'static str) -> crate::error::AppResult<()>
     let explorer = std::path::PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into())).join("explorer.exe");
     if crate::sys::token::is_elevated().unwrap_or(true) {
         crate::sys::launch::spawn_as_shell_user(&explorer, uri, &crate::user::environment(), 0)
-            .map_err(|e| crate::error::AppError::Other(format!("không mở được Windows Settings: {}", e.message())))?;
+            .map_err(|e| crate::error::AppError::Other(format!("Could not open Windows Settings: {}", e.message())))?;
         return Ok(());
     }
     std::process::Command::new(explorer).arg(uri).spawn()?;
@@ -86,7 +86,7 @@ pub async fn app_info() -> AppResult<AppInfo> {
 #[tauri::command]
 pub async fn app_relaunch_elevated(app: AppHandle, state: State<'_, AppState>, page: Option<String>) -> AppResult<()> {
     if sys::token::is_elevated()? {
-        return Err(AppError::InvalidInput("PC Manager đã chạy với quyền Administrator".into()));
+        return Err(AppError::InvalidInput("PC Manager is already running as administrator".into()));
     }
     let exe = std::env::current_exe()?;
     let mut args = format!("{WAIT_PID_ARG}{}", std::process::id());
@@ -95,12 +95,12 @@ pub async fn app_relaunch_elevated(app: AppHandle, state: State<'_, AppState>, p
     }
     let started = tauri::async_runtime::spawn_blocking(move || sys::shell::run_elevated(&exe, &args))
         .await
-        .map_err(|e| crate::error::task_failed("chạy lại với quyền Administrator", e))??;
+        .map_err(|e| crate::error::task_failed("relaunching as administrator", e))??;
     state.store.log_action_best_effort(
         "app.elevate",
         "PC Manager",
         started,
-        if started { "chạy lại với quyền Administrator" } else { "người dùng huỷ UAC" },
+        if started { "relaunch as administrator" } else { "user cancelled the UAC prompt" },
     );
     if !started {
         return Err(AppError::Cancelled);
@@ -128,7 +128,7 @@ pub async fn jobs_snapshot(state: State<'_, AppState>) -> AppResult<Vec<crate::j
 #[tauri::command]
 pub async fn jobs_ack(state: State<'_, AppState>, kind: String) -> AppResult<()> {
     if !crate::jobs::KINDS.contains(&kind.as_str()) {
-        return Err(AppError::InvalidInput("loại tác vụ không hợp lệ".into()));
+        return Err(AppError::InvalidInput("Invalid task type".into()));
     }
     state.jobs.ack(&kind);
     Ok(())
@@ -140,7 +140,7 @@ pub async fn jobs_ack(state: State<'_, AppState>, kind: String) -> AppResult<()>
 pub async fn system_info() -> AppResult<crate::hwinfo::SystemInfo> {
     tauri::async_runtime::spawn_blocking(crate::hwinfo::collect)
         .await
-        .map_err(|e| crate::error::task_failed("đọc cấu hình máy", e))
+        .map_err(|e| crate::error::task_failed("reading system information", e))
 }
 
 /// Smart Diagnosis: quét nhanh (chỉ đọc, ~vài trăm ms) hoặc quét sâu (+ phân tích WinSxS bằng DISM).
@@ -151,7 +151,7 @@ pub async fn diagnosis_run(
     deep: bool,
     on_progress: tauri::ipc::Channel<crate::diagnosis::DiagProgress>,
 ) -> AppResult<crate::diagnosis::Report> {
-    crate::jobs::run(app, "diagnosis.scan", "chẩn đoán máy", Some(on_progress), move |s, report| {
+    crate::jobs::run(app, "diagnosis.scan", "diagnosing the PC", Some(on_progress), move |s, report| {
         crate::diagnosis::run(s, deep, &|p| report(p))
     })
     .await

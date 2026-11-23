@@ -109,9 +109,9 @@ mod tests {
             .flatten()
             .map(|e| e.path())
             .find(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("lnk")))
-            .expect("không tìm thấy .lnk nào trong Start Menu");
+            .expect("No .lnk files found in the Start Menu");
         let t = resolve_lnk(&com, &lnk).unwrap();
-        assert!(t.path.is_some(), "{lnk:?} không có đích");
+        assert!(t.path.is_some(), "{lnk:?} has no target");
     }
 
     #[test]

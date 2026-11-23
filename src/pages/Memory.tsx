@@ -14,7 +14,7 @@ function Composition({ s }: { s: MemoryStatus }) {
   const free = s.free ?? 0;
   const inUse = Math.max(0, s.used - modified);
   const parts = [
-    { label: "Đang dùng", v: inUse, cls: "bg-accent" },
+    { label: "In use", v: inUse, cls: "bg-accent" },
     { label: "Modified", v: modified, cls: "bg-amber-500" },
     { label: "Standby", v: standby, cls: "bg-sky-400" },
     { label: "Free", v: free, cls: "bg-black/10 dark:bg-white/15" },
@@ -65,7 +65,7 @@ export function SmartSettings() {
       stored.current = v;
       setS(v);
       window.dispatchEvent(new Event(MEMORY_SETTINGS_CHANGED));
-      setSaved("Đã lưu");
+      setSaved("Saved");
       window.setTimeout(() => setSaved(null), 1500);
     } catch (e) {
       setErr(errorMessage(e));
@@ -76,7 +76,7 @@ export function SmartSettings() {
   return (
     <div className="grid gap-3 text-sm">
       <label className="flex items-center gap-3">
-        <span className="w-48">Ngưỡng RAM trống</span>
+        <span className="w-48">Available RAM threshold</span>
         <input
           type="range"
           min={5}
@@ -91,10 +91,10 @@ export function SmartSettings() {
       </label>
       <label className="flex items-center gap-3">
         <input type="checkbox" checked={s.smartAuto} onChange={(e) => save({ ...s, smartAuto: e.target.checked })} />
-        Tự động Smart Boost khi chạy nền (kiểm tra mỗi 60 giây, nghỉ 5 phút giữa 2 lần)
+        Run Smart Boost automatically in the background (check every 60 seconds, with a 5-minute cooldown)
       </label>
       <p className="text-xs opacity-60">
-        Smart Boost chỉ chạy khi RAM còn trống thấp hơn ngưỡng. {saved && <b className="text-green-600">{saved}</b>}
+        Smart Boost only runs when available RAM falls below the threshold. {saved && <b className="text-green-600">{saved}</b>}
       </p>
       {err && <Notice tone="error">{err}</Notice>}
     </div>
@@ -106,26 +106,26 @@ export default function Memory() {
   const s = overview?.status;
 
   return (
-    <PageShell title="Bộ nhớ" subtitle="Chi tiết RAM và bộ nhớ ảo (commit)">
+    <PageShell title="Memory" subtitle="RAM and virtual memory (commit) details">
       {error && <Notice tone="error">{error}</Notice>}
       {s && (
         <div className="grid gap-4">
-          <Card title="Phân bổ RAM">
+          <Card title="RAM composition">
             <Composition s={s} />
           </Card>
           <Card>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 2xl:grid-cols-8">
-              <Stat label="Tổng RAM" value={formatBytes(s.total)} />
-              <Stat label="Đang dùng" value={formatBytes(s.used)} />
-              <Stat label="Còn trống (available)" value={formatBytes(s.available)} hint="Free + Standby — Windows có thể cấp ngay" />
+              <Stat label="Total RAM" value={formatBytes(s.total)} />
+              <Stat label="In use" value={formatBytes(s.used)} />
+              <Stat label="Available" value={formatBytes(s.available)} hint="Free + Standby — available to Windows immediately" />
               <Stat label="Free" value={formatBytes(s.free)} />
-              <Stat label="Standby (cache)" value={formatBytes(s.standby)} hint="Cache file/app vừa dùng, đã tính vào khả dụng. Boost nhẹ chỉ xoá phần ưu tiên thấp, Boost sâu xoá hết." />
-              <Stat label="Modified" value={formatBytes(s.modified)} hint="Trang chờ ghi ra đĩa — Boost sẽ ghi để chúng thành khả dụng" />
+              <Stat label="Standby (cache)" value={formatBytes(s.standby)} hint="Cache for recently used files and apps; already included in available memory. Light Boost clears only low-priority cache, while Deep Boost clears it all." />
+              <Stat label="Modified" value={formatBytes(s.modified)} hint="Pages waiting to be written to disk — Boost flushes them to make memory available" />
               <Stat label="Commit" value={`${formatBytes(s.commitTotal)} / ${formatBytes(s.commitLimit)}`} />
-              <Stat label="Cache hệ thống" value={formatBytes(s.systemCache)} />
+              <Stat label="System cache" value={formatBytes(s.systemCache)} />
             </div>
           </Card>
-          <Card title="% RAM đang dùng — 60 giây gần nhất">
+          <Card title="RAM usage — last 60 seconds">
             <UsageChart samples={history} minHeight={200} />
           </Card>
           <Card title="Boost">

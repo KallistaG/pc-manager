@@ -122,22 +122,22 @@ fn memory(s: &Snapshot, out: &mut Vec<Finding>) {
         return;
     }
     let free_pct = pct(s.mem_avail, s.mem_total);
-    let m = format!("còn trống {free_pct}% ({})", fmt_bytes(s.mem_avail));
+    let m = format!("{free_pct}% free ({})", fmt_bytes(s.mem_avail));
     let f = match free_pct {
         // RAM thật sự thiếu: cache (standby) khi ấy vốn đã nhỏ — cách duy nhất có tác dụng là đóng bớt app
         // nặng. Boost (nhẹ) chỉ ghi trang modified xuống đĩa, là phụ.
-        0..10 => finding("ram", Category::Memory, Severity::Critical, "RAM gần hết", "Máy có thể chậm, giật hoặc treo app. Đóng bớt app đang chiếm nhiều RAM (mở Tiến trình, sắp xếp theo RAM). Boost chỉ giúp thêm chút ít.")
-            .action(open("processes", "Mở Tiến trình")),
-        10..20 => finding("ram", Category::Memory, Severity::Warn, "RAM đang dùng nhiều", "Boost ghi dữ liệu chờ (modified) xuống đĩa để trả lại RAM; nếu thường xuyên thế này, xem app nào đang chiếm nhiều RAM.")
+        0..10 => finding("ram", Category::Memory, Severity::Critical, "RAM is nearly full", "Your PC may slow down, stutter, or freeze. Close apps using a lot of memory (open Processes and sort by memory). Boost may only help a little.")
+            .action(open("processes", "Open Processes")),
+        10..20 => finding("ram", Category::Memory, Severity::Warn, "High memory usage", "Boost writes pending (modified) data to disk to free memory. If this happens often, check which apps are using the most RAM.")
             .action(Some(Action::Boost)),
-        _ => finding("ram", Category::Memory, Severity::Ok, "RAM ổn", "Còn đủ bộ nhớ trống."),
+        _ => finding("ram", Category::Memory, Severity::Ok, "RAM looks good", "There is enough available memory."),
     };
     out.push(f.metric(m));
     if s.commit_limit > 0 && pct(s.commit_total, s.commit_limit) >= 90 {
         out.push(
-            finding("commit", Category::Memory, Severity::Warn, "Bộ nhớ ảo gần đầy", "Tổng bộ nhớ các app xin gần chạm giới hạn (RAM + pagefile). App có thể báo thiếu bộ nhớ hoặc tự tắt.")
-                .metric(format!("{}% giới hạn", pct(s.commit_total, s.commit_limit)))
-                .action(open("processes", "Xem tiến trình")),
+            finding("commit", Category::Memory, Severity::Warn, "Virtual memory is nearly full", "The total memory requested by apps is close to the limit (RAM + page file). Apps may report low memory or close unexpectedly.")
+                .metric(format!("{}% of limit", pct(s.commit_total, s.commit_limit)))
+                .action(open("processes", "View processes")),
         );
     }
 }
@@ -145,7 +145,7 @@ fn memory(s: &Snapshot, out: &mut Vec<Finding>) {
 fn storage(s: &Snapshot, out: &mut Vec<Finding>) {
     for d in &s.drives {
         let free_pct = pct(d.free, d.total);
-        let m = format!("ổ {}: còn {free_pct}% ({})", d.letter, fmt_bytes(d.free));
+        let m = format!("Drive {}: {free_pct}% free ({})", d.letter, fmt_bytes(d.free));
         let (id, sev) = match (d.system, free_pct, d.free) {
             (true, p, f) if p < 10 || f < 10 * GB => ("disk-system", Severity::Critical),
             (true, p, f) if p < 20 || f < 20 * GB => ("disk-system", Severity::Warn),
@@ -154,39 +154,39 @@ fn storage(s: &Snapshot, out: &mut Vec<Finding>) {
             _ => continue,
         };
         let f = match sev {
-            Severity::Ok => finding(id, Category::Storage, sev, format!("Ổ {}: còn đủ chỗ", d.letter), "Ổ hệ thống còn dư dung lượng."),
+            Severity::Ok => finding(id, Category::Storage, sev, format!("Drive {} has enough free space", d.letter), "The system drive has plenty of free space."),
             _ if d.system => finding(
                 id,
                 Category::Storage,
                 sev,
-                format!("Ổ hệ thống {}: sắp đầy", d.letter),
-                "Windows cần chỗ trống để cập nhật và tạo file tạm; ổ đầy làm máy chậm. Dọn rác, xoá file lớn/trùng hoặc gỡ app không dùng.",
+                format!("System drive {} is low on space", d.letter),
+                "Windows needs free space for updates and temporary files; a full drive can slow down your PC. Clean up junk, remove large or duplicate files, or uninstall apps you no longer use.",
             )
-            .action(open("cleaner", "Dọn rác")),
-            _ => finding(id, Category::Storage, sev, format!("Ổ {}: sắp đầy", d.letter), "Xem file lớn và file trùng trên ổ này.")
-                .action(open("disk", "Xem ổ đĩa")),
+            .action(open("cleaner", "Clean junk")),
+            _ => finding(id, Category::Storage, sev, format!("Drive {} is low on space", d.letter), "Review large files and duplicates on this drive.")
+                .action(open("disk", "View disks")),
         };
         out.push(f.metric(m));
     }
     match s.junk_bytes {
         Some(b) if b >= GB => out.push(
-            finding("junk", Category::Storage, Severity::Warn, format!("Có {} rác dọn được", fmt_bytes(b)), "File tạm, cache, bản ghi lỗi… Xem trước rồi chọn mục muốn dọn.")
+            finding("junk", Category::Storage, Severity::Warn, format!("{} of junk can be cleaned", fmt_bytes(b)), "Temporary files, caches, and error reports… Review the results and choose what to clean.")
                 .metric(fmt_bytes(b))
-                .action(open("cleaner", "Xem & dọn")),
+                .action(open("cleaner", "Review & clean")),
         ),
         Some(b) if b >= 200 * MB => out.push(
-            finding("junk", Category::Storage, Severity::Info, format!("Có {} rác dọn được", fmt_bytes(b)), "Không nhiều, dọn khi tiện.")
+            finding("junk", Category::Storage, Severity::Info, format!("{} of junk can be cleaned", fmt_bytes(b)), "Not much — clean it up when convenient.")
                 .metric(fmt_bytes(b))
-                .action(open("cleaner", "Xem & dọn")),
+                .action(open("cleaner", "Review & clean")),
         ),
-        Some(b) => out.push(finding("junk", Category::Storage, Severity::Ok, "Ít rác", "Không có nhiều file tạm/cache cần dọn.").metric(fmt_bytes(b))),
+        Some(b) => out.push(finding("junk", Category::Storage, Severity::Ok, "Little junk found", "There are not many temporary files or caches to clean.").metric(fmt_bytes(b))),
         None => {}
     }
     if let Some(b) = s.recycle_bytes.filter(|&b| b >= GB) {
         out.push(
-            finding("recycle", Category::Storage, Severity::Info, format!("Thùng rác đang chiếm {}", fmt_bytes(b)), "Kiểm tra lại Thùng rác rồi làm rỗng để lấy lại dung lượng.")
+            finding("recycle", Category::Storage, Severity::Info, format!("Recycle Bin is using {}", fmt_bytes(b)), "Review the Recycle Bin, then empty it to free up space.")
                 .metric(fmt_bytes(b))
-                .action(open("cleaner", "Xem Thùng rác")),
+                .action(open("cleaner", "Review Recycle Bin")),
         );
     }
 }
@@ -194,11 +194,11 @@ fn storage(s: &Snapshot, out: &mut Vec<Finding>) {
 fn startup(s: &Snapshot, out: &mut Vec<Finding>) {
     let Some(n) = s.startup_enabled else { return };
     let f = match n {
-        15.. => finding("startup", Category::Startup, Severity::Warn, format!("{n} app khởi động cùng Windows"), "Nhiều app chạy lúc bật máy làm khởi động lâu và tốn RAM. Tắt bớt app không cần (không xoá app).")
-            .action(open("startup", "Xem app khởi động")),
-        8.. => finding("startup", Category::Startup, Severity::Info, format!("{n} app khởi động cùng Windows"), "Có thể tắt bớt app không cần chạy ngay khi bật máy.")
-            .action(open("startup", "Xem app khởi động")),
-        _ => finding("startup", Category::Startup, Severity::Ok, "Ít app khởi động cùng Windows", "Thời gian bật máy không bị ảnh hưởng nhiều."),
+        15.. => finding("startup", Category::Startup, Severity::Warn, format!("{n} apps start with Windows"), "Too many startup apps can slow boot and use memory. Disable apps you do not need (this does not uninstall them).")
+            .action(open("startup", "View startup apps")),
+        8.. => finding("startup", Category::Startup, Severity::Info, format!("{n} apps start with Windows"), "You may be able to disable apps that do not need to run at startup.")
+            .action(open("startup", "View startup apps")),
+        _ => finding("startup", Category::Startup, Severity::Ok, "Few startup apps", "Startup time is unlikely to be affected much."),
     };
     out.push(f.metric(format!("{n} app")));
 }
@@ -206,7 +206,7 @@ fn startup(s: &Snapshot, out: &mut Vec<Finding>) {
 fn apps(s: &Snapshot, out: &mut Vec<Finding>) {
     let Some(u) = &s.unused else { return };
     if u.count == 0 || u.bytes < GB {
-        out.push(finding("apps-unused", Category::Apps, Severity::Ok, "Không có app lớn bị bỏ quên", "Không thấy app nào lâu không dùng mà chiếm nhiều dung lượng."));
+        out.push(finding("apps-unused", Category::Apps, Severity::Ok, "No large unused apps found", "No apps that have been unused for a long time are taking up significant space."));
         return;
     }
     let names = u.top.iter().map(|t| t.0.as_str()).collect::<Vec<_>>().join(", ");
@@ -215,11 +215,11 @@ fn apps(s: &Snapshot, out: &mut Vec<Finding>) {
             "apps-unused",
             Category::Apps,
             Severity::Info,
-            format!("{} app không dùng hơn 6 tháng ({})", u.count, fmt_bytes(u.bytes)),
-            format!("Lớn nhất: {names}. Gỡ app không cần để lấy lại dung lượng."),
+            format!("{} apps unused for over 6 months ({})", u.count, fmt_bytes(u.bytes)),
+            format!("Largest: {names}. Uninstall apps you no longer need to free up space."),
         )
         .metric(format!("{} app · {}", u.count, fmt_bytes(u.bytes)))
-        .action(open("apps", "Xem ứng dụng")),
+        .action(open("apps", "View apps")),
     );
 }
 
@@ -229,14 +229,14 @@ fn windows(s: &Snapshot, out: &mut Vec<Finding>) {
             "reboot-pending",
             Category::Windows,
             Severity::Warn,
-            "Windows đang chờ khởi động lại",
-            "Một bản cập nhật cần Restart để hoàn tất. Hãy chọn Restart (không phải Shut down) khi tiện.",
+            "Windows is waiting for a restart",
+            "An update needs a restart to finish. Choose Restart (not Shut down) when convenient.",
         ));
     }
     if let Some(secs) = s.since_restart_secs.filter(|&x| x >= 14 * DAY_SECS) {
         let days = secs / DAY_SECS;
         let why = if s.fast_startup {
-            " Fast Startup đang bật nên Shut down rồi mở máy không làm mới Windows — chỉ Restart mới làm."
+            " Fast Startup is enabled, so shutting down and turning your PC back on does not reset Windows — only Restart does."
         } else {
             ""
         };
@@ -245,26 +245,26 @@ fn windows(s: &Snapshot, out: &mut Vec<Finding>) {
                 "restart",
                 Category::Windows,
                 Severity::Info,
-                format!("{days} ngày chưa khởi động lại hẳn"),
-                format!("Restart giúp giải phóng bộ nhớ bị giữ lâu và áp dụng cập nhật.{why}"),
+                format!("No full restart in {days} days"),
+                format!("Restarting can free memory held for a long time and apply updates.{why}"),
             )
-            .metric(format!("{days} ngày")),
+            .metric(format!("{days} days")),
         );
     }
     if s.windows_old {
         out.push(
-            finding("windows-old", Category::Windows, Severity::Info, "Còn bản cài Windows cũ (Windows.old)", "Thường chiếm 10–30 GB. Chỉ xoá khi chắc không cần quay lại bản Windows trước.")
-                .action(open("cleaner", "Xem Dọn sâu hệ thống")),
+            finding("windows-old", Category::Windows, Severity::Info, "Previous Windows installation remains (Windows.old)", "It often takes up 10–30 GB. Remove it only if you are sure you will not need to roll back to the previous version of Windows.")
+                .action(open("cleaner", "View system cleanup")),
         );
     }
     if s.winsxs_recommended == Some(true) {
         out.push(
-            finding("winsxs", Category::Windows, Severity::Info, "Kho WinSxS nên được dọn", "DISM khuyên dọn các thành phần cũ đã được thay bằng bản cập nhật mới.")
-                .action(open("cleaner", "Xem Dọn sâu hệ thống")),
+            finding("winsxs", Category::Windows, Severity::Info, "WinSxS cleanup recommended", "DISM recommends cleaning up old components that have been replaced by newer updates.")
+                .action(open("cleaner", "View system cleanup")),
         );
     }
     if !out.iter().any(|f| f.category == Category::Windows) {
-        out.push(finding("windows", Category::Windows, Severity::Ok, "Windows ổn", "Không chờ khởi động lại, không có bản cài cũ."));
+        out.push(finding("windows", Category::Windows, Severity::Ok, "Windows looks good", "No restart is pending and no previous Windows installation was found."));
     }
 }
 
@@ -287,8 +287,8 @@ fn hardware(s: &Snapshot, out: &mut Vec<Finding>) {
                 "ram-xmp",
                 Category::Hardware,
                 Severity::Info,
-                "RAM đang chạy chậm hơn mức hỗ trợ",
-                "Bật XMP (Intel) / EXPO (AMD) trong BIOS để RAM chạy đúng tốc độ. Chỉ làm nếu bạn quen chỉnh BIOS.",
+                "RAM is running below its rated speed",
+                "Enable XMP (Intel) / EXPO (AMD) in BIOS to run RAM at its rated speed. Only do this if you are comfortable changing BIOS settings.",
             )
             .metric(format!("{now} / {max} MT/s")),
         );
@@ -298,19 +298,19 @@ fn hardware(s: &Snapshot, out: &mut Vec<Finding>) {
             "hdd",
             Category::Hardware,
             Severity::Info,
-            "Windows đang chạy trên ổ HDD",
-            "Ổ SSD giúp bật máy và mở app nhanh hơn nhiều lần — nâng cấp đáng giá nhất cho máy dùng HDD.",
+            "Windows is running on a hard disk drive",
+            "An SSD can make startup and app launches much faster — it is often the most worthwhile upgrade for a PC with a hard drive.",
         ));
     }
     let ram_tight = s.mem_total > 0 && pct(s.mem_avail, s.mem_total) < 20;
     if let Some(n) = s.ram_slots_free.filter(|&n| n > 0 && ram_tight) {
         out.push(
-            finding("ram-upgrade", Category::Hardware, Severity::Info, format!("Còn {n} khe RAM trống"), "Máy hay thiếu RAM — có thể cắm thêm thanh RAM (xem loại RAM ở Cấu hình máy).")
-                .action(open("system", "Xem cấu hình")),
+            finding("ram-upgrade", Category::Hardware, Severity::Info, format!("{n} RAM slots are free"), "Your PC often runs low on memory — consider adding a RAM module (check the type on the System Info page).")
+                .action(open("system", "View system info")),
         );
     }
     if out.len() == before {
-        out.push(finding("hardware", Category::Hardware, Severity::Ok, "Phần cứng ổn", "Không thấy điểm nghẽn rõ ràng."));
+        out.push(finding("hardware", Category::Hardware, Severity::Ok, "Hardware looks good", "No obvious bottlenecks were found."));
     }
 }
 
@@ -356,7 +356,7 @@ mod tests {
         let f = analyze(&healthy());
         assert!(f.iter().all(|x| x.severity == Severity::Ok), "{f:#?}");
         for c in [Category::Memory, Category::Storage, Category::Startup, Category::Apps, Category::Windows, Category::Hardware] {
-            assert!(f.iter().any(|x| x.category == c), "mỗi nhóm đều có ít nhất một dòng: {c:?}");
+            assert!(f.iter().any(|x| x.category == c), "each category has at least one finding: {c:?}");
         }
     }
 
@@ -372,14 +372,14 @@ mod tests {
             ..healthy()
         };
         let f = analyze(&s);
-        assert_eq!(f[0].severity, Severity::Critical, "nặng nhất lên đầu");
+        assert_eq!(f[0].severity, Severity::Critical, "highest severity comes first");
         let ram = by_id(&f, "ram").unwrap();
         assert_eq!(ram.severity, Severity::Critical);
-        assert!(matches!(ram.action, Some(Action::Open { page: "processes", .. })), "RAM < 10%: đóng bớt app là hành động chính");
+        assert!(matches!(ram.action, Some(Action::Open { page: "processes", .. })), "RAM < 10%: closing apps is the primary action");
         let c = by_id(&f, "disk-system").unwrap();
-        assert_eq!(c.severity, Severity::Critical, "C: còn 15/256 GB = 5% < 10%");
+        assert_eq!(c.severity, Severity::Critical, "C: 15/256 GB free = 5% < 10%");
         assert!(matches!(c.action, Some(Action::Open { page: "cleaner", .. })));
-        assert_eq!(by_id(&f, "disk-other").unwrap().severity, Severity::Warn, "D: còn 2%");
+        assert_eq!(by_id(&f, "disk-other").unwrap().severity, Severity::Warn, "D: 2% free");
         assert_eq!(by_id(&f, "junk").unwrap().severity, Severity::Warn);
     }
 
@@ -421,10 +421,10 @@ mod tests {
         assert_eq!(by_id(&f, "reboot-pending").unwrap().severity, Severity::Warn);
         assert!(by_id(&f, "restart").unwrap().detail.contains("Fast Startup"));
         assert!(by_id(&f, "windows-old").is_some());
-        assert!(by_id(&f, "windows").is_none(), "đã có vấn đề thì không ghi 'Windows ổn'");
+        assert!(by_id(&f, "windows").is_none(), "do not report Windows as healthy when there is an issue");
         assert_eq!(by_id(&f, "ram-xmp").unwrap().metric.as_deref(), Some("2133 / 3200 MT/s"));
         assert!(by_id(&f, "hdd").is_some());
-        assert!(by_id(&f, "ram-upgrade").is_some(), "RAM căng + còn khe trống");
+        assert!(by_id(&f, "ram-upgrade").is_some(), "high RAM usage with free slots");
     }
 
     #[test]
@@ -438,12 +438,12 @@ mod tests {
             ..Default::default()
         };
         let (dimm, sodimm) = (slot("DIMM"), slot("SODIMM"));
-        assert_eq!(xmp_candidate(&[&sodimm]), None, "laptop: không gợi ý XMP");
+        assert_eq!(xmp_candidate(&[&sodimm]), None, "laptops should not be offered XMP");
         assert_eq!(xmp_candidate(&[&dimm]), Some((2133, 3200)));
         let unknown = MemorySlot { form_factor: None, ..slot("DIMM") };
-        assert_eq!(xmp_candidate(&[&unknown]), None, "không rõ loại thì không đoán");
+        assert_eq!(xmp_candidate(&[&unknown]), None, "do not guess when the memory type is unknown");
         let close = MemorySlot { configured_mts: Some(3100), ..slot("DIMM") };
-        assert_eq!(xmp_candidate(&[&close]), None, "chênh < 200 MT/s");
+        assert_eq!(xmp_candidate(&[&close]), None, "difference < 200 MT/s");
     }
 
     #[test]

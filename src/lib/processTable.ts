@@ -8,7 +8,7 @@ export interface Sort {
 }
 
 export interface Group {
-  key: string; // tên exe viết thường
+  key: string; // lowercase executable name
   name: string;
   members: ProcessInfo[];
   cpuPct: number;
@@ -22,13 +22,13 @@ export const procKey = (p: { pid: number; createTime: string }) => `${p.pid}:${p
 export function publisherText(p: Publisher): string {
   switch (p.status) {
     case "signed":
-      return p.name || "Đã ký";
+      return p.name || "Signed";
     case "unsigned":
-      return "Không có chữ ký";
+      return "Unsigned";
     case "invalid":
-      return "Chữ ký không hợp lệ";
+      return "Invalid signature";
     case "pending":
-      return "Đang kiểm tra…";
+      return "Checking…";
     default:
       return "";
   }
@@ -68,7 +68,7 @@ type Row = { name: string; pid?: number; cpuPct: number; privateBytes: number; p
 function compare(a: Row, b: Row, key: SortKey): number {
   switch (key) {
     case "name":
-      return a.name.localeCompare(b.name, "vi", { sensitivity: "base" });
+      return a.name.localeCompare(b.name, "en", { sensitivity: "base" });
     case "pid":
       return (a.pid ?? 0) - (b.pid ?? 0);
     case "cpu":
@@ -76,14 +76,14 @@ function compare(a: Row, b: Row, key: SortKey): number {
     case "memory":
       return a.privateBytes - b.privateBytes;
     case "publisher":
-      return publisherText(a.publisher).localeCompare(publisherText(b.publisher), "vi");
+      return publisherText(a.publisher).localeCompare(publisherText(b.publisher), "en");
     case "path":
-      return (a.path ?? "").localeCompare(b.path ?? "", "vi");
+      return (a.path ?? "").localeCompare(b.path ?? "", "en");
   }
 }
 
 export function sortRows<T extends Row>(rows: T[], sort: Sort): T[] {
   const dir = sort.desc ? -1 : 1;
   // Tie-break theo tên để thứ tự ổn định giữa các lần refresh (không nhảy dòng).
-  return [...rows].sort((a, b) => compare(a, b, sort.key) * dir || a.name.localeCompare(b.name) || (a.pid ?? 0) - (b.pid ?? 0));
+  return [...rows].sort((a, b) => compare(a, b, sort.key) * dir || a.name.localeCompare(b.name, "en", { sensitivity: "base" }) || (a.pid ?? 0) - (b.pid ?? 0));
 }

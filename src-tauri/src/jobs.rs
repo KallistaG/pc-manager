@@ -150,7 +150,7 @@ mod tests {
         jobs.ack("cleaner.scan");
         jobs.ack("disk.large");
         let left: Vec<_> = jobs.snapshot().into_iter().map(|j| j.kind).collect();
-        assert_eq!(left, vec!["cleaner.scan"], "đang chạy thì không bị xoá");
+        assert_eq!(left, vec!["cleaner.scan"], "running jobs are not removed");
     }
 
     #[test]

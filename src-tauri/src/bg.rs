@@ -25,6 +25,6 @@ pub fn shared() -> AppResult<&'static Arc<rayon::ThreadPool>> {
         .thread_name(|i| format!("bg-{i}"))
         .start_handler(|_| sys::process::enter_background_mode())
         .build()
-        .map_err(|e| AppError::Other(format!("không tạo được thread pool: {e}")))?;
+        .map_err(|e| AppError::Other(format!("Could not create the thread pool: {e}")))?;
     Ok(POOL.get_or_init(|| Arc::new(pool)))
 }

@@ -40,10 +40,10 @@ fn validate_whitelist_path(p: &str) -> Result<String, String> {
     let path = Path::new(p);
     let disk = matches!(path.components().next(), Some(Component::Prefix(x)) if matches!(x.kind(), Prefix::Disk(_)));
     if p.is_empty() || p.len() > 260 || !disk || !path.is_absolute() {
-        return Err(format!("'{p}' không phải đường dẫn tuyệt đối trên ổ đĩa"));
+        return Err(format!("'{p}' is not an absolute drive path"));
     }
     if path.components().any(|c| matches!(c, Component::ParentDir | Component::CurDir)) {
-        return Err(format!("'{p}' chứa '.' hoặc '..'"));
+        return Err(format!("'{p}' contains '.' or '..'"));
     }
     Ok(p.to_owned())
 }
@@ -72,7 +72,7 @@ fn apply_whitelist(list: &[String]) {
 /// Lưu whitelist (thư mục có thể chưa tồn tại — vẫn bảo vệ).
 pub fn save_whitelist(store: &Store, list: &[String]) -> AppResult<Vec<String>> {
     if list.len() > MAX_WHITELIST {
-        return Err(AppError::InvalidInput(format!("tối đa {MAX_WHITELIST} thư mục")));
+        return Err(AppError::InvalidInput(format!("A maximum of {MAX_WHITELIST} folders is allowed")));
     }
     let mut clean = Vec::new();
     for p in list {
@@ -84,7 +84,7 @@ pub fn save_whitelist(store: &Store, list: &[String]) -> AppResult<Vec<String>> 
     let json = serde_json::to_string(&clean).map_err(|e| AppError::Other(e.to_string()))?;
     store.set_setting(KEY_WHITELIST, &json)?;
     apply_whitelist(&clean);
-    store.log_action_best_effort("settings.whitelist", "whitelist", true, &format!("{} thư mục", clean.len()));
+    store.log_action_best_effort("settings.whitelist", "whitelist", true, &format!("{} folders", clean.len()));
     Ok(clean)
 }
 
@@ -180,16 +180,16 @@ fn inside_program_files(exe_normed: &str, program_files: &[String]) -> bool {
 /// (chỉ admin ghi được) — nên chỉ cho phép khi app được cài ở đó.
 /// `Err(lý do)` nếu không được phép.
 pub fn autostart_allowed() -> Result<PathBuf, String> {
-    let exe = std::env::current_exe().map_err(|e| format!("không xác định được vị trí app: {e}"))?;
+    let exe = std::env::current_exe().map_err(|e| format!("Could not determine the app location: {e}"))?;
     // canonicalize: giải symlink/junction và tên 8.3 trước khi so đường dẫn.
-    let real = std::fs::canonicalize(&exe).map_err(|e| format!("không đọc được vị trí app: {e}"))?;
+    let real = std::fs::canonicalize(&exe).map_err(|e| format!("Could not read the app location: {e}"))?;
     let pf: Vec<String> = ["ProgramFiles", "ProgramW6432", "ProgramFiles(x86)"].iter().filter_map(|k| std::env::var(k).ok()).collect();
     if inside_program_files(&norm(&real.to_string_lossy()), &pf) {
         Ok(real)
     } else {
         Err(format!(
-            "PC Manager đang chạy từ {} — chỉ bật được khi app được cài vào Program Files (bằng bộ cài), \
-             vì task khởi động chạy với quyền Administrator mà không hỏi UAC.",
+            "PC Manager is running from {} — this option is available only when the app is installed in Program Files (using the installer), \
+             because the startup task runs with administrator privileges without a UAC prompt.",
             exe.parent().unwrap_or(&exe).display()
         ))
     }
@@ -243,7 +243,7 @@ fn create_task_for_user(sid: &str, exe: &Path) -> AppResult<std::process::Output
 pub fn set_autostart(store: &Store, enabled: bool) -> AppResult<bool> {
     // Tạo / xoá task "chạy với quyền cao nhất" đều cần quyền Administrator.
     if !crate::sys::token::is_elevated().unwrap_or(false) {
-        return Err(AppError::Forbidden("cần chạy PC Manager với quyền Administrator để đổi tuỳ chọn này".into()));
+        return Err(AppError::Forbidden("Run PC Manager as administrator to change this setting".into()));
     }
     let result = if enabled {
         let exe = match autostart_allowed() {
@@ -270,9 +270,9 @@ pub fn set_autostart(store: &Store, enabled: bool) -> AppResult<bool> {
     let out = result?;
     let ok = out.status.success();
     let detail = String::from_utf8_lossy(if ok { &out.stdout } else { &out.stderr }).trim().to_owned();
-    store.log_action_best_effort("settings.autostart", TASK_NAME, ok, &format!("{}: {detail}", if enabled { "bật" } else { "tắt" }));
+    store.log_action_best_effort("settings.autostart", TASK_NAME, ok, &format!("{}: {detail}", if enabled { "enabled" } else { "disabled" }));
     if !ok {
-        return Err(AppError::Other(format!("schtasks lỗi: {detail}")));
+        return Err(AppError::Other(format!("schtasks failed: {detail}")));
     }
     Ok(autostart_enabled())
 }
@@ -284,8 +284,8 @@ mod tests {
     #[test]
     fn task_xml_targets_user_and_escapes_path() {
         let xml = task_xml("S-1-5-21-9", Path::new(r"C:\Program Files\A&B <x>\pc-manager.exe"));
-        assert_eq!(xml.matches("<UserId>S-1-5-21-9</UserId>").count(), 2, "trigger và principal đều là user đó");
-        assert!(xml.contains("<LogonType>InteractiveToken</LogonType>"), "không cần mật khẩu");
+        assert_eq!(xml.matches("<UserId>S-1-5-21-9</UserId>").count(), 2, "the trigger and principal must target the same user");
+        assert!(xml.contains("<LogonType>InteractiveToken</LogonType>"), "no password is required");
         assert!(xml.contains(r"<Command>C:\Program Files\A&amp;B &lt;x&gt;\pc-manager.exe</Command>"));
         assert!(xml.contains(&format!("<Arguments>{TRAY_ARG}</Arguments>")));
     }
@@ -297,8 +297,8 @@ mod tests {
         assert!(ok(r"C:\Program Files\PC Manager\pc-manager.exe"));
         assert!(ok(r"\\?\C:\PROGRAM FILES (X86)\PC Manager\pc-manager.exe"));
         assert!(!ok(r"C:\Users\An\Desktop\pc-manager\src-tauri\target\release\pc-manager.exe"));
-        assert!(!ok(r"C:\Program FilesEvil\pc-manager.exe"), "phải đúng ranh giới thư mục");
-        assert!(!ok(r"C:\Program Files"), "không phải chính thư mục gốc");
+        assert!(!ok(r"C:\Program FilesEvil\pc-manager.exe"), "must respect the folder boundary");
+        assert!(!ok(r"C:\Program Files"), "must not be the root folder itself");
         assert!(!ok(r"D:\Program Files\PC Manager\pc-manager.exe"));
         assert_eq!(norm_display(Path::new(r"\\?\C:\Program Files\PC Manager\a.exe")), r"C:\Program Files\PC Manager\a.exe");
         // Bản test đang chạy từ target\ => không được phép.
@@ -334,7 +334,7 @@ mod tests {
         a.last_run_ms = Some(1_000);
         assert!(!a.due(1_000 + 3_600_000));
         assert!(a.due(1_000 + 86_400_000));
-        assert!(a.due(500), "đồng hồ lùi => chạy lại");
+        assert!(a.due(500), "a clock rollback should run again");
         a.enabled = false;
         assert!(!a.due(i64::MAX));
         assert!(!AutoClean { rule_ids: vec![], ..AutoClean { enabled: true, ..AutoClean::default() } }.due(0));

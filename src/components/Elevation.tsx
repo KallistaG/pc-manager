@@ -35,7 +35,7 @@ export const useElevation = () => useContext(Ctx);
  * Nút mở lại PC Manager với quyền Administrator (Windows hỏi UAC).
  * Không hiện gì khi app đã có quyền admin.
  */
-export function ElevateButton({ size = "sm", label = "Chạy với quyền Administrator" }: { size?: "sm" | "md"; label?: string }) {
+export function ElevateButton({ size = "sm", label = "Run as administrator" }: { size?: "sm" | "md"; label?: string }) {
   const { elevated, page } = useElevation();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -47,13 +47,13 @@ export function ElevateButton({ size = "sm", label = "Chạy với quyền Admin
       await api.relaunchElevated(page);
       // Thành công: app sẽ tự đóng và mở lại với quyền admin.
     } catch (e) {
-      setErr(isApiError(e) && e.code === "cancelled" ? "Đã huỷ ở hộp UAC" : errorMessage(e));
+      setErr(isApiError(e) && e.code === "cancelled" ? "Cancelled in the UAC prompt" : errorMessage(e));
       setBusy(false);
     }
   };
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
-      <Button variant="warning" size={size} loading={busy} onClick={run} title="Windows sẽ hỏi xác nhận (UAC), rồi PC Manager mở lại với quyền Administrator">
+      <Button variant="warning" size={size} loading={busy} onClick={run} title="Windows will ask for UAC confirmation, then PC Manager will reopen as an administrator">
         <IconShield className="h-4 w-4" />
         {label}
       </Button>

@@ -110,7 +110,7 @@ impl SmartThreshold {
             Ok(Self(pct))
         } else {
             Err(AppError::InvalidInput(format!(
-                "ngưỡng Smart Boost phải trong {}–{}%, nhận {pct}%",
+                "Smart Boost threshold must be between {}–{}%; received {pct}%",
                 Self::MIN,
                 Self::MAX
             )))

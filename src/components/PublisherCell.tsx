@@ -13,7 +13,7 @@ export default function PublisherCell({ p, empty = "" }: { p: Publisher; empty?:
           ? "text-red-600 dark:text-red-400"
           : "opacity-50";
   return (
-    <span className={cls} title={p.status === "invalid" ? `Mã lỗi WinVerifyTrust ${p.code}` : undefined}>
+    <span className={cls} title={p.status === "invalid" ? `WinVerifyTrust error code ${p.code}` : undefined}>
       {p.status === "signed" && <IconCheck className="mr-1 inline-block h-[1em] w-[1em] align-[-0.125em] text-green-600" />}
       {publisherText(p) || empty}
     </span>

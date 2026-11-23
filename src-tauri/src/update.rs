@@ -53,7 +53,7 @@ impl UpdateSettings {
 /// không được cài gì (plugin cũng sẽ từ chối, nhưng báo sớm và rõ hơn).
 pub fn pubkey_configured(pubkey: &str) -> bool {
     let k = pubkey.trim();
-    !k.is_empty() && !k.contains("CHUA_CO_KHOA")
+    !k.is_empty() && !k.contains("UNCONFIGURED_UPDATE_KEY")
 }
 
 #[cfg(test)]
@@ -64,11 +64,11 @@ mod tests {
     fn auto_check_at_most_once_a_day() {
         let day = AUTO_INTERVAL_MS;
         let s = UpdateSettings { auto: true, last_check_ms: None };
-        assert!(s.auto_due(1_000), "chưa kiểm tra lần nào");
+        assert!(s.auto_due(1_000), "no previous check");
         let s = UpdateSettings { auto: true, last_check_ms: Some(10 * day) };
         assert!(!s.auto_due(10 * day + day - 1));
         assert!(s.auto_due(11 * day));
-        assert!(s.auto_due(day), "đồng hồ máy bị lùi => kiểm tra lại");
+        assert!(s.auto_due(day), "a clock rollback should trigger another check");
         let off = UpdateSettings { auto: false, last_check_ms: None };
         assert!(!off.auto_due(1_000));
     }
@@ -81,13 +81,13 @@ mod tests {
         s.save(&store).unwrap();
         assert_eq!(UpdateSettings::load(&store), s);
         store.set_setting(KEY, "{}").unwrap();
-        assert!(UpdateSettings::load(&store).auto, "thiếu trường => mặc định bật");
+        assert!(UpdateSettings::load(&store).auto, "a missing field should default to enabled");
     }
 
     #[test]
     fn placeholder_pubkey_is_not_configured() {
         assert!(!pubkey_configured(""));
-        assert!(!pubkey_configured("CHUA_CO_KHOA — chạy scripts/new-updater-key.ps1"));
+        assert!(!pubkey_configured("UNCONFIGURED_UPDATE_KEY — run scripts/new-updater-key.ps1"));
         assert!(pubkey_configured("dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk="));
     }
 }

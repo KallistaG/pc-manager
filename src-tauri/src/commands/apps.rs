@@ -15,7 +15,7 @@ use tauri::ipc::Channel;
 /// trên pool nền ưu tiên thấp.
 #[tauri::command]
 pub async fn apps_list(app: AppHandle, on_progress: Channel<AppsProgress>) -> AppResult<AppsOverview> {
-    jobs::run(app, "apps.list", "đọc danh sách ứng dụng", Some(on_progress), |state, report| {
+    jobs::run(app, "apps.list", "loading the app list", Some(on_progress), |state, report| {
         // Gửi tối đa ~10 lần/giây (và luôn gửi lần cuối) để không dồn sự kiện khi có hàng trăm app.
         let last = std::sync::Mutex::new(std::time::Instant::now() - Duration::from_secs(1));
         let throttled = |p: AppsProgress| {
@@ -58,12 +58,12 @@ pub struct UninstallFinished {
 #[tauri::command]
 pub async fn apps_uninstall(app: AppHandle, id: String) -> AppResult<String> {
     if id.is_empty() || id.len() > 300 {
-        return Err(AppError::InvalidInput("id không hợp lệ".into()));
+        return Err(AppError::InvalidInput("Invalid ID".into()));
     }
     let handle = app.clone();
     let started = tauri::async_runtime::spawn_blocking(move || usage::uninstall(&handle.state::<AppState>().store, &id))
         .await
-        .map_err(|e| crate::error::task_failed("mở trình gỡ cài đặt", e))??;
+        .map_err(|e| crate::error::task_failed("opening the uninstaller", e))??;
     let started_at = SystemTime::now();
     let name = started.app.name.clone();
     // Chụp lại thông tin app: trình gỡ sẽ xoá key registry, nhưng vẫn cần biết thư mục cài để dọn sót.
@@ -79,12 +79,12 @@ pub async fn apps_uninstall(app: AppHandle, id: String) -> AppResult<String> {
             name: started.app.name,
             timed_out: !finished,
         };
-        let detail = if payload.timed_out { "quá thời gian chờ" } else if payload.still_installed { "app vẫn còn" } else { "đã gỡ" };
+        let detail = if payload.timed_out { "timed out" } else if payload.still_installed { "app is still installed" } else { "uninstalled" };
         app.state::<AppState>().store.log_action_best_effort("app.uninstall.finished", &payload.name, !payload.still_installed, detail);
         let _ = app.emit(EVENT_UNINSTALL_FINISHED, &payload);
     });
     if let Err(e) = spawned {
-        eprintln!("không tạo được thread theo dõi gỡ cài đặt: {e}");
+        eprintln!("Could not create the uninstaller monitor thread: {e}");
     }
     Ok(name)
 }
@@ -93,14 +93,14 @@ pub async fn apps_uninstall(app: AppHandle, id: String) -> AppResult<String> {
 #[tauri::command]
 pub async fn apps_leftovers_scan(app: AppHandle, id: String) -> AppResult<LeftoverScan> {
     if id.is_empty() || id.len() > 300 {
-        return Err(AppError::InvalidInput("id không hợp lệ".into()));
+        return Err(AppError::InvalidInput("Invalid ID".into()));
     }
     tauri::async_runtime::spawn_blocking(move || {
         crate::sys::process::enter_background_mode();
         app.state::<AppState>().leftovers.scan(&id)
     })
     .await
-    .map_err(|e| crate::error::task_failed("dọn phần còn sót", e))?
+    .map_err(|e| crate::error::task_failed("cleaning app leftovers", e))?
 }
 
 /// Chuyển các mục đã chọn vào Thùng rác (key registry: sao lưu .reg rồi xoá).
@@ -113,9 +113,9 @@ pub async fn apps_leftovers_clean(
     on_progress: Channel<LeftoverProgress>,
 ) -> AppResult<LeftoverReport> {
     if item_ids.is_empty() || item_ids.len() > 500 {
-        return Err(AppError::InvalidInput("chưa chọn mục nào".into()));
+        return Err(AppError::InvalidInput("No items selected".into()));
     }
-    jobs::run(app, "apps.leftovers", "dọn phần còn sót", Some(on_progress), move |state, report| {
+    jobs::run(app, "apps.leftovers", "cleaning app leftovers", Some(on_progress), move |state, report| {
         state.leftovers.clean(&state.store, scan_id, &item_ids, &|p| report(p))
     })
     .await

@@ -113,7 +113,7 @@ pub fn empty() -> Result<(), String> {
         }
     }
     if failed > 0 {
-        return Err(format!("{failed} mục đang bị khoá, chưa xoá được"));
+        return Err(format!("{failed} item(s) are locked and could not be deleted"));
     }
     Ok(())
 }
@@ -134,13 +134,13 @@ fn move_into_bin(sid: &str, path: &Path) -> Result<(), String> {
         .chars()
         .next()
         .filter(|c| c.is_ascii_alphabetic() && original.get(1..3) == Some(r":\"))
-        .ok_or("chỉ hỗ trợ đường dẫn trên ổ đĩa (X:\\…)")?
+        .ok_or("Only drive-letter paths are supported (X:\\…)")?
         .to_ascii_uppercase();
     let bin = bin_dir(sid, letter);
     if !bin.is_dir() {
-        return Err(format!("chưa có Thùng rác của người dùng trên ổ {letter}: — hãy mở PC Manager ở chế độ thường để xoá mục này"));
+        return Err(format!("The signed-in user’s Recycle Bin is not available on drive {letter}: — open PC Manager normally to delete this item"));
     }
-    let meta = std::fs::symlink_metadata(path).map_err(|_| "không còn tồn tại".to_owned())?;
+    let meta = std::fs::symlink_metadata(path).map_err(|_| "No longer exists".to_owned())?;
     let size = if meta.is_dir() { total_size(path) } else { meta.len() };
     let ext = path.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
     let (data, info) = (0..20)
@@ -149,15 +149,15 @@ fn move_into_bin(sid: &str, path: &Path) -> Result<(), String> {
             (bin.join(format!("$R{s}{ext}")), bin.join(format!("$I{s}{ext}")))
         })
         .find(|(r, i)| std::fs::symlink_metadata(r).is_err() && std::fs::symlink_metadata(i).is_err())
-        .ok_or("không tạo được tên trong Thùng rác")?;
+        .ok_or("Could not generate a Recycle Bin name")?;
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
     let filetime = u64::try_from(now / 100).unwrap_or(0) + FILETIME_UNIX_EPOCH;
     // Cùng ổ => chỉ đổi tên, không chép dữ liệu.
-    std::fs::rename(path, &data).map_err(|e| format!("không chuyển được vào Thùng rác: {e}"))?;
+    std::fs::rename(path, &data).map_err(|e| format!("Could not move to the Recycle Bin: {e}"))?;
     if let Err(e) = std::fs::write(&info, encode_info(&original, size, filetime)) {
         // Không ghi được thông tin gốc => trả lại chỗ cũ, không để mục "mồ côi".
         let _ = std::fs::rename(&data, path);
-        return Err(format!("không ghi được thông tin Thùng rác: {e}"));
+        return Err(format!("Could not write Recycle Bin metadata: {e}"));
     }
     Ok(())
 }
@@ -177,7 +177,7 @@ mod tests {
         assert_eq!(String::from_utf16(&chars[..len - 1]).unwrap(), r"C:\Users\ánh\a.txt");
         assert_eq!(chars[len - 1], 0);
         assert_eq!(info_size(&[0u8; 4]), None);
-        assert_eq!(info_size(&[9u8; 32]), None, "phiên bản lạ => bỏ qua");
+        assert_eq!(info_size(&[9u8; 32]), None, "unknown version should be ignored");
     }
 
     #[test]
@@ -201,15 +201,15 @@ mod format_check {
     /// bằng `move_into_bin`, rồi xem Explorer có liệt kê đúng tên/đường dẫn gốc không.
     /// Chạy tay: `cargo test format_check -- --ignored --nocapture`, sau đó khôi phục/xoá mục đó.
     #[test]
-    #[ignore = "ghi vào Thùng rác thật của người chạy test"]
+    #[ignore = "writes to the test runner’s real Recycle Bin"]
     fn writes_entry_explorer_can_read() {
         let sid = crate::sys::session::current_user_sid().expect("SID");
         let dir = std::env::temp_dir().join(format!("pcm-recycle-fmt-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let file = dir.join("pcm-kiểm-tra.txt");
+        let file = dir.join("pcm-test.txt");
         std::fs::write(&file, b"pc manager recycle format check").unwrap();
         super::move_into_bin(&sid, &file).unwrap();
         assert!(!file.exists());
-        println!("ĐÃ GHI: {}", file.display());
+        println!("WROTE: {}", file.display());
     }
 }
